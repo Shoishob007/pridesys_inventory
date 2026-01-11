@@ -6,6 +6,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import type { ReactNode } from "react";
 import "./globals.css";
+import { UserProvider } from "@/contexts/UserContext";
 
 const queryClient = new QueryClient();
 
@@ -14,11 +15,13 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html lang="en">
       <body>
         <QueryClientProvider client={queryClient}>
-          <TooltipProvider>
-            <Toaster />
-            <Sonner />
-            {children}
-          </TooltipProvider>
+          <UserProvider>
+            <TooltipProvider>
+              <Toaster />
+              <Sonner />
+              {children}
+            </TooltipProvider>
+          </UserProvider>
         </QueryClientProvider>
       </body>
     </html>

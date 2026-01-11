@@ -10,9 +10,9 @@ import {
   ChevronLeft,
   MoreVertical,
   Home,
+  LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { currentUser } from "@/data/mockData";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,7 +22,14 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { useUser } from "@/contexts/UserContext";
 
 interface NavItem {
   name: string;
@@ -51,6 +58,30 @@ interface AppSidebarProps {
 
 export function AppSidebar({ isOpen, onToggle, isMobile }: AppSidebarProps) {
   const pathname = usePathname();
+  const router = useRouter();
+  const { user, setUser } = useUser();
+
+  const handleLogout = async () => {
+    const token = localStorage.getItem("token");
+    if (token) {
+      try {
+        await fetch("/api/logout", {
+          method: "POST",
+          headers: {
+            Authorization: token,
+          },
+        });
+      } catch (error) {
+        console.error("Logout failed:", error);
+      } finally {
+        localStorage.removeItem("token");
+        setUser(null);
+        router.push("/login");
+      }
+    } else {
+      router.push("/login");
+    }
+  };
 
   const isActiveRoute = (path: string) => {
     return pathname === path || pathname.startsWith(path + "/");
@@ -70,7 +101,6 @@ export function AppSidebar({ isOpen, onToggle, isMobile }: AppSidebarProps) {
       </div>
     );
 
-    // Show tooltip only when sidebar is collapsed (not open)
     if (!isOpen) {
       return (
         <Tooltip key={item.path} delayDuration={0}>
@@ -94,12 +124,10 @@ export function AppSidebar({ isOpen, onToggle, isMobile }: AppSidebarProps) {
   return (
     <TooltipProvider delayDuration={0}>
       <>
-        {/* Mobile overlay */}
         {isMobile && isOpen && (
           <div className="fixed inset-0 bg-black/50 z-40" onClick={onToggle} />
         )}
 
-        {/* Sidebar */}
         <aside
           className={cn(
             "fixed left-0 top-0 h-full bg-sidebar flex flex-col z-50 transition-all duration-300",
@@ -107,7 +135,6 @@ export function AppSidebar({ isOpen, onToggle, isMobile }: AppSidebarProps) {
             isMobile && !isOpen && "-translate-x-full"
           )}
         >
-          {/* Header */}
           <div className="flex items-center gap-3 p-4 border-b border-sidebar-border">
             <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center flex-shrink-0">
               <Package className="h-5 w-5 text-primary-foreground" />
@@ -123,9 +150,7 @@ export function AppSidebar({ isOpen, onToggle, isMobile }: AppSidebarProps) {
             {!isOpen && (
               <Tooltip delayDuration={0}>
                 <TooltipTrigger asChild>
-                  {/* <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center flex-shrink-0">
-                    <Package className="h-5 w-5 text-primary-foreground" />
-                  </div> */}
+                  <div></div>
                 </TooltipTrigger>
                 <TooltipContent side="right" sideOffset={10} className="z-50">
                   Home Inventory
@@ -134,7 +159,6 @@ export function AppSidebar({ isOpen, onToggle, isMobile }: AppSidebarProps) {
             )}
           </div>
 
-          {/* Navigation */}
           <nav className="flex-1 p-3 space-y-2 overflow-y-auto">
             {mainNavItems.map(renderNavItem)}
 
@@ -149,66 +173,80 @@ export function AppSidebar({ isOpen, onToggle, isMobile }: AppSidebarProps) {
             {settingsNavItems.map(renderNavItem)}
           </nav>
 
-          {/* User section */}
-          <div className="p-3 border-t border-sidebar-border">
-            <div
-              className={cn(
-                "flex items-center gap-3 p-2 rounded-lg hover:bg-sidebar-accent transition-colors",
-                !isOpen && "justify-center"
-              )}
-            >
-              {!isOpen ? (
-                <Tooltip delayDuration={0}>
-                  <TooltipTrigger asChild>
-                    <Avatar className="h-9 w-9 flex-shrink-0 cursor-pointer">
+          {user && (
+            <div className="p-3 border-t border-sidebar-border">
+              <div
+                className={cn(
+                  "flex items-center gap-3 p-2 rounded-lg hover:bg-sidebar-accent transition-colors",
+                  !isOpen && "justify-center"
+                )}
+              >
+                {!isOpen ? (
+                  <Tooltip delayDuration={0}>
+                    <TooltipTrigger asChild>
+                      <Avatar className="h-9 w-9 flex-shrink-0 cursor-pointer">
+                        <AvatarFallback className="bg-primary text-primary-foreground font-medium">
+                          {user.name
+                            ?.split(" ")
+                            .map((n) => n[0])
+                            .join("")}
+                        </AvatarFallback>
+                      </Avatar>
+                    </TooltipTrigger>
+                    <TooltipContent
+                      side="right"
+                      sideOffset={10}
+                      className="z-50"
+                    >
+                      <div className="text-sm">
+                        <p className="font-medium">{user.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {user.email}
+                        </p>
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                ) : (
+                  <>
+                    <Avatar className="h-9 w-9 flex-shrink-0">
                       <AvatarFallback className="bg-primary text-primary-foreground font-medium">
-                        {currentUser.name
-                          .split(" ")
+                        {user.name
+                          ?.split(" ")
                           .map((n) => n[0])
                           .join("")}
                       </AvatarFallback>
                     </Avatar>
-                  </TooltipTrigger>
-                  <TooltipContent side="right" sideOffset={10} className="z-50">
-                    <div className="text-sm">
-                      <p className="font-medium">{currentUser.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {currentUser.email}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">
+                        {user.name}
+                      </p>
+                      <p className="text-xs text-sidebar-muted truncate">
+                        {user.email}
                       </p>
                     </div>
-                  </TooltipContent>
-                </Tooltip>
-              ) : (
-                <>
-                  <Avatar className="h-9 w-9 flex-shrink-0">
-                    <AvatarFallback className="bg-primary text-primary-foreground font-medium">
-                      {currentUser.name
-                        .split(" ")
-                        .map((n) => n[0])
-                        .join("")}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-foreground truncate">
-                      {currentUser.name}
-                    </p>
-                    <p className="text-xs text-sidebar-muted truncate">
-                      {currentUser.email}
-                    </p>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-sidebar-muted hover:text-foreground hover:bg-sidebar-accent"
-                  >
-                    <MoreVertical className="h-4 w-4" />
-                  </Button>
-                </>
-              )}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-sidebar-muted hover:text-foreground hover:bg-sidebar-accent"
+                        >
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent sideOffset={10} align="end">
+                        <DropdownMenuItem onClick={handleLogout}>
+                          <LogOut className="mr-2 h-4 w-4" />
+                          <span>Logout</span>
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </>
+                )}
+              </div>
             </div>
-          </div>
+          )}
 
-          {/* Collapse button - desktop only */}
           {!isMobile && (
             <button
               onClick={onToggle}
