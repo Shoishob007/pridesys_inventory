@@ -7,7 +7,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
-export type SortField = 'name' | 'updatedAt' | 'quantity' | 'purchasePrice';
+export type SortField = 'name' | 'updatedAt' | 'quantity';
 export type SortDirection = 'asc' | 'desc';
 
 interface SortOption {
@@ -19,7 +19,6 @@ const sortOptions: SortOption[] = [
   { field: 'name', label: 'Name' },
   { field: 'updatedAt', label: 'Updated' },
   { field: 'quantity', label: 'Quantity' },
-  { field: 'purchasePrice', label: 'Price' },
 ];
 
 interface SortDropdownProps {

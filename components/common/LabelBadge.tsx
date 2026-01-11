@@ -1,24 +1,30 @@
 import { cn } from '@/lib/utils';
-import { LabelColor } from '@/types';
 
 interface LabelBadgeProps {
   name: string;
-  color: LabelColor;
-  className?: string;
+  color?: string;
 }
 
-const colorClasses: Record<LabelColor, string> = {
-  blue: 'label-blue',
-  green: 'label-green',
-  red: 'label-red',
-  orange: 'label-orange',
-  purple: 'label-purple',
-  yellow: 'label-yellow',
+const colorClasses: { [key: string]: string } = {
+  blue: 'bg-blue-100 text-blue-800',
+  green: 'bg-green-100 text-green-800',
+  red: 'bg-red-100 text-red-800',
+  orange: 'bg-orange-100 text-orange-800',
+  purple: 'bg-purple-100 text-purple-800',
+  yellow: 'bg-yellow-100 text-yellow-800',
+  default: 'bg-gray-100 text-gray-800',
 };
 
-export function LabelBadge({ name, color, className }: LabelBadgeProps) {
+export function LabelBadge({ name, color = 'default' }: LabelBadgeProps) {
+  const badgeColor = colorClasses[color] || colorClasses.default;
+
   return (
-    <span className={cn('label-badge', colorClasses[color], className)}>
+    <span
+      className={cn(
+        'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium',
+        badgeColor
+      )}
+    >
       {name}
     </span>
   );

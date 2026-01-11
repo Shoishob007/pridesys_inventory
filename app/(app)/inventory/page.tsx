@@ -1,117 +1,170 @@
-"use client";
-import { useState, useCallback, useMemo } from "react";
-import { useRouter } from "next/navigation";
-import { Plus, Download, MoreVertical } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { SearchInput } from "@/components/common/SearchInput";
-import { FilterChip } from "@/components/common/FilterChip";
-import { DataTable } from "@/components/common/DataTable";
-import { Pagination } from "@/components/common/Pagination";
-import { LabelBadge } from "@/components/common/LabelBadge";
-import { ItemImage } from "@/components/common/ItemImage";
-import { TableSkeleton } from "@/components/common/TableSkeleton";
-import { ErrorState } from "@/components/common/ErrorState";
-import { EmptyState } from "@/components/common/EmptyState";
+'use client';
+import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { Plus, Download, MoreVertical } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { SearchInput } from '@/components/common/SearchInput';
+import { FilterChip } from '@/components/common/FilterChip';
+import { DataTable } from '@/components/common/DataTable';
+import { Pagination } from '@/components/common/Pagination';
+import { LabelBadge } from '@/components/common/LabelBadge';
+import { ItemImage } from '@/components/common/ItemImage';
+import { TableSkeleton } from '@/components/common/TableSkeleton';
+import { ErrorState } from '@/components/common/ErrorState';
+import { EmptyState } from '@/components/common/EmptyState';
 import {
   SortDropdown,
   SortField,
   SortDirection,
-} from "@/components/common/SortDropdown";
-import {
-  FilterDropdown,
-  FilterValue,
-} from "@/components/common/FilterDropdown";
-import { ItemFormDrawer } from "@/components/inventory/ItemFormDrawer";
-import { useDataFetching, mockFetch } from "@/hooks/useDataFetching";
-import { inventoryItems } from "@/data/mockData";
-import { InventoryItem } from "@/types";
+} from '@/components/common/SortDropdown';
+import { FilterDropdown } from '@/components/common/FilterDropdown';
+import { ItemFormDrawer } from '@/components/inventory/ItemFormDrawer';
+import { InventoryItem, FilterValue, Label, FilterSubOption } from '@/types';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { toast } from "sonner";
+} from '@/components/ui/dropdown-menu';
+import { toast } from 'sonner';
+
+interface Location {
+  id: string;
+  name: string;
+}
 
 export default function Inventory() {
   const router = useRouter();
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedItems, setSelectedItems] = useState<string[]>([]);
+  const [data, setData] = useState<InventoryItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const [sortField, setSortField] = useState<SortField>("updatedAt");
-  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+  const [sortField, setSortField] = useState<SortField>('updatedAt');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [filters, setFilters] = useState<FilterValue[]>([]);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
+  const [locationOptions, setLocationOptions] = useState<FilterSubOption[]>([]);
+  const [labelOptions, setLabelOptions] = useState<FilterSubOption[]>([]);
 
   const itemsPerPage = 8;
 
-  // Fetch data with loading state
-  const fetchInventory = useCallback(() => mockFetch(inventoryItems), []);
-  const { data, isLoading, error, refetch } = useDataFetching(fetchInventory);
+  const refetch = useCallback(() => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      setIsLoading(true);
+      const headers = { Authorization: token };
 
-  // Filter and sort data
+      const inventoryPromise = fetch('/api/inventory', { headers }).then(res => {
+        if (!res.ok) throw new Error('Failed to fetch inventory');
+        return res.json();
+      });
+
+      const locationsPromise = fetch('/api/locations', { headers }).then(res => {
+        if (!res.ok) throw new Error('Failed to fetch locations');
+        return res.json();
+      });
+
+      const labelsPromise = fetch('/api/labels', { headers }).then(res => {
+        if (!res.ok) throw new Error('Failed to fetch labels');
+        return res.json();
+      });
+
+      Promise.all([inventoryPromise, locationsPromise, labelsPromise])
+        .then(([inventoryData, locationsData, labelsData]) => {
+          const items = Array.isArray(inventoryData.items) ? inventoryData.items : [];
+          const transformedItems = items.map((item: any) => ({
+            ...item,
+            locationId: item.location?.id,
+            labels: Array.isArray(item.labels) ? item.labels : []
+          }));
+          
+          setData(transformedItems);
+
+          const locations: Location[] = Array.isArray(locationsData) ? locationsData : [];
+          setLocationOptions(
+            locations.map((loc) => ({
+              id: loc.id,
+              value: loc.id,
+              label: loc.name,
+            }))
+          );
+
+          const labels: Label[] = Array.isArray(labelsData) ? labelsData : [];
+          setLabelOptions(
+            labels.map((label) => ({
+              id: label.id,
+              value: label.id,
+              label: label.name,
+              color: label.color,
+            }))
+          );
+
+          setError(null);
+        })
+        .catch((err) => {
+          setError(err.message);
+          setData([]);
+          setLocationOptions([]);
+          setLabelOptions([]);
+        })
+        .finally(() => setIsLoading(false));
+    }
+  }, []);
+
+  useEffect(() => {
+    refetch();
+  }, [refetch]);
+
   const processedData = useMemo(() => {
-    if (!data) return [];
+    let result = data ? [...data] : [];
 
-    let result = [...data];
-
-    // Apply search
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       result = result.filter(
         (item) =>
           item.name.toLowerCase().includes(query) ||
-          item.brand?.toLowerCase().includes(query) ||
-          item.model?.toLowerCase().includes(query)
+          (item.description && item.description.toLowerCase().includes(query))
       );
     }
 
-    // Apply filters
     filters.forEach((filter) => {
-      if (filter.type === "location") {
-        result = result.filter((item) => item.locationId === filter.value);
-      }
-      if (filter.type === "label") {
+      if (filter.type === 'status') {
+        if (filter.value === 'in-stock') {
+          result = result.filter((item) => item.quantity > 0);
+        } else if (filter.value === 'out-of-stock') {
+          result = result.filter((item) => item.quantity === 0);
+        }
+      } else if (filter.type === 'label') {
         result = result.filter((item) =>
           item.labels.some((l) => l.id === filter.value)
         );
-      }
-      if (filter.type === "status") {
-        if (filter.value === "in-stock") {
-          result = result.filter((item) => item.quantity > 0);
-        } else if (filter.value === "out-of-stock") {
-          result = result.filter((item) => item.quantity === 0);
-        }
+      } else if (filter.type === 'location') {
+        result = result.filter((item) => item.locationId === filter.value);
       }
     });
 
-    // Apply sorting
     result.sort((a, b) => {
       let comparison = 0;
       switch (sortField) {
-        case "name":
+        case 'name':
           comparison = a.name.localeCompare(b.name);
           break;
-        case "quantity":
+        case 'quantity':
           comparison = a.quantity - b.quantity;
           break;
-        case "purchasePrice":
-          comparison = (a.purchasePrice || 0) - (b.purchasePrice || 0);
-          break;
-        case "updatedAt":
+        case 'updatedAt':
         default:
-          // Simple string comparison for demo
-          comparison = a.updatedAt.localeCompare(b.updatedAt);
+          comparison = new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
           break;
       }
-      return sortDirection === "asc" ? comparison : -comparison;
+      return sortDirection === 'asc' ? comparison : -comparison;
     });
 
     return result;
-  }, [data, searchQuery, filters, sortField, sortDirection]);
+  }, [data, searchQuery, sortField, sortDirection, filters]);
 
-  // Pagination
   const totalItems = processedData.length;
   const totalPages = Math.ceil(totalItems / itemsPerPage);
   const paginatedData = processedData.slice(
@@ -138,19 +191,46 @@ export default function Inventory() {
     setDrawerOpen(true);
   };
 
-  const handleSaveItem = () => {
-    if (editingItem) {
-      toast.success("Item updated successfully");
-    } else {
-      toast.success("Item added successfully");
+  const handleSaveItem = async (itemData: Partial<InventoryItem>) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      try {
+        const requestBody = {
+          name: itemData.name,
+          description: itemData.description || '',
+          quantity: itemData.quantity || 0,
+          locationId: itemData.locationId,
+          labelIds: itemData.labels?.map(label => label.id) || [],
+          ...(itemData.id && { id: itemData.id })
+        };
+        
+        const response = await fetch('/api/items', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: token },
+          body: JSON.stringify(requestBody),
+        });
+        
+        if (!response.ok) throw new Error('Failed to save item');
+        
+        toast.success(`Item ${itemData.id ? 'updated' : 'added'} successfully`);
+        refetch();
+        setDrawerOpen(false);
+      } catch (error) {
+        console.error('Save error:', error);
+        toast.error('Failed to save item');
+      }
     }
+  };
+
+  const getLocationName = (locationId: string) => {
+    return locationOptions.find(l => l.value === locationId)?.label || 'N/A';
   };
 
   const columns = [
     {
-      key: "item",
-      header: "Item",
-      width: "30%",
+      key: 'item',
+      header: 'Item',
+      width: '40%',
       render: (item: InventoryItem) => (
         <div className="flex items-center gap-3">
           <ItemImage alt={item.name} />
@@ -158,63 +238,75 @@ export default function Inventory() {
             <p className="font-medium text-foreground truncate text-sm sm:text-base">
               {item.name}
             </p>
-            {item.model && (
-              <p className="text-xs text-muted-foreground truncate">
-                Model: {item.model}
-              </p>
-            )}
-            {/* Show location on mobile */}
             <p className="text-xs text-muted-foreground truncate sm:hidden mt-1">
-              {item.locationPath.join(" > ")}
+              {getLocationName(item.locationId)}
             </p>
           </div>
         </div>
       ),
     },
     {
-      key: "location",
-      header: "Location",
-      className: "hidden sm:table-cell",
+      key: 'location',
+      header: 'Location',
+      className: 'hidden sm:table-cell',
       render: (item: InventoryItem) => (
         <span className="text-sm text-muted-foreground">
-          {item.locationPath.join(" > ")}
+          {getLocationName(item.locationId)}
         </span>
       ),
     },
     {
-      key: "labels",
-      header: "Labels",
-      className: "hidden md:table-cell",
-      render: (item: InventoryItem) => (
-        <div className="flex flex-wrap gap-1.5">
-          {item.labels.map((label) => (
-            <LabelBadge key={label.id} name={label.name} color={label.color} />
-          ))}
-        </div>
-      ),
+      key: 'labels',
+      header: 'Labels',
+      className: 'hidden md:table-cell',
+      render: (item: InventoryItem) => {
+        if (!item.labels || !Array.isArray(item.labels) || item.labels.length === 0) {
+          return <span className="text-xs text-muted-foreground">No labels</span>;
+        }
+        
+        return (
+          <div className="flex flex-wrap gap-1.5">
+            {item.labels.map((itemLabel: Label) => {
+              const fullLabel = labelOptions.find(opt => opt.id === itemLabel.id);
+              const badgeName = fullLabel?.label || itemLabel.name;
+              const badgeColor = fullLabel?.color || 'blue';
+              
+              return (
+                <LabelBadge
+                  key={itemLabel.id}
+                  name={badgeName}
+                  color={badgeColor}
+                />
+              );
+            })}
+          </div>
+        );
+      },
     },
     {
-      key: "quantity",
-      header: "Quantity",
-      width: "80px",
-      className: "hidden sm:table-cell",
+      key: 'quantity',
+      header: 'Quantity',
+      width: '80px',
+      className: 'text-right hidden sm:table-cell',
       render: (item: InventoryItem) => (
         <span className="text-sm text-foreground">{item.quantity}</span>
       ),
     },
     {
-      key: "updated",
-      header: "Updated",
-      width: "150px",
-      className: "hidden lg:table-cell",
+      key: 'updated',
+      header: 'Updated',
+      width: '150px',
+      className: 'hidden lg:table-cell',
       render: (item: InventoryItem) => (
-        <span className="text-sm text-muted-foreground">{item.updatedAt}</span>
+        <span className="text-sm text-muted-foreground">
+          {new Date(item.updatedAt).toLocaleDateString()}
+        </span>
       ),
     },
     {
-      key: "actions",
-      header: "",
-      width: "60px",
+      key: 'actions',
+      header: '',
+      width: '60px',
       render: (item: InventoryItem) => (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -223,17 +315,11 @@ export default function Inventory() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem
-              onClick={() => router.push(`/inventory/${item.id}`)}
-            >
+            <DropdownMenuItem onClick={() => router.push(`/inventory/${item.id}`)}>
               View Details
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleEditItem(item)}>
-              Edit
-            </DropdownMenuItem>
-            <DropdownMenuItem className="text-destructive">
-              Delete
-            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleEditItem(item)}>Edit</DropdownMenuItem>
+            <DropdownMenuItem className="text-destructive">Delete</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       ),
@@ -242,26 +328,23 @@ export default function Inventory() {
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      {/* Header */}
       <div className="space-y-3 sm:space-y-4">
-        {/* Title and action buttons row */}
         <div className="flex items-center justify-between">
           <h1 className="text-xl sm:text-2xl font-bold text-foreground">
             Inventory
           </h1>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" className="flex">
-              <Download className="h-4 w-4" />
-              <span className="ml-2">Export</span>
+            <Button variant="outline" size="sm" className="hidden sm:flex">
+              <Download className="h-4 w-4 mr-2" />
+              Export
             </Button>
             <Button onClick={handleAddItem} size="sm">
-              <Plus className="h-4 w-4" />
-              <span className="inline ml-2">Add Item</span>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Item
             </Button>
           </div>
         </div>
 
-        {/* Search bar row */}
         <div className="w-full">
           <SearchInput
             value={searchQuery}
@@ -275,25 +358,20 @@ export default function Inventory() {
         </div>
       </div>
 
-      {/* Active filters and count */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-sm text-foreground whitespace-nowrap">
-            Filters:
-          </span>
-          {filters.map((filter) => (
-            <FilterChip
-              key={filter.id}
-              label={filter.label}
-              onRemove={() => removeFilter(filter.id)}
-            />
-          ))}
+            {filters.map((filter) => (
+              <FilterChip
+                key={filter.id}
+                label={filter.label}
+                onRemove={() => removeFilter(filter.id)}
+              />
+            ))}
           <FilterDropdown
+            locationOptions={locationOptions}
+            labelOptions={labelOptions}
             activeFilters={filters}
-            onFiltersChange={(newFilters) => {
-              setFilters(newFilters);
-              setCurrentPage(1);
-            }}
+            onFiltersChange={setFilters}
           />
         </div>
         <div className="flex items-center gap-3 justify-between sm:justify-end">
@@ -308,36 +386,21 @@ export default function Inventory() {
         </div>
       </div>
 
-      {/* Data table with loading/error states */}
       {isLoading ? (
-        <TableSkeleton rows={10} columns={5} showCheckbox />
+        <TableSkeleton rows={8} columns={6} />
       ) : error ? (
         <ErrorState message={error} onRetry={refetch} />
       ) : paginatedData.length === 0 ? (
         <EmptyState
           title="No items found"
-          description={
-            searchQuery || filters.length > 0
-              ? "Try adjusting your search or filters"
-              : "Get started by adding your first item"
-          }
-          actionLabel={
-            !searchQuery && filters.length === 0 ? "Add Item" : undefined
-          }
+          description={searchQuery || filters.length > 0 ? 'Try adjusting your search or filters' : 'Get started by adding your first item'}
+          actionLabel={!searchQuery && filters.length === 0 ? 'Add Item' : undefined}
           onAction={handleAddItem}
         />
       ) : (
-        <DataTable
-          columns={columns}
-          data={paginatedData}
-          keyExtractor={(item) => item.id}
-          selectable
-          selectedItems={selectedItems}
-          onSelectionChange={setSelectedItems}
-        />
+        <DataTable columns={columns} data={paginatedData} keyExtractor={(item) => item.id} />
       )}
 
-      {/* Pagination */}
       {!isLoading && !error && paginatedData.length > 0 && (
         <Pagination
           currentPage={currentPage}
@@ -348,12 +411,13 @@ export default function Inventory() {
         />
       )}
 
-      {/* Add/Edit Item Drawer */}
       <ItemFormDrawer
         open={drawerOpen}
         onOpenChange={setDrawerOpen}
-        item={editingItem}
         onSave={handleSaveItem}
+        item={editingItem}
+        locationOptions={locationOptions}
+        labelOptions={labelOptions}
       />
     </div>
   );

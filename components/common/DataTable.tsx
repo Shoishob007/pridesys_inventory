@@ -6,6 +6,7 @@ interface Column<T> {
   key: string;
   header: string;
   width?: string;
+  className?: string; // Add this if not present
   render: (item: T) => ReactNode;
 }
 
@@ -62,7 +63,10 @@ export function DataTable<T>({
             {columns.map((column) => (
               <th
                 key={column.key}
-                className="px-4 py-3 text-left text-xs font-600 font-semibold text-foreground uppercase tracking-wider"
+                className={cn(
+                  "px-4 py-3 text-left text-xs font-600 font-semibold text-foreground uppercase tracking-wider",
+                  column.className
+                )}
                 style={{ width: column.width }}
               >
                 {column.header}
@@ -92,7 +96,10 @@ export function DataTable<T>({
                   </td>
                 )}
                 {columns.map((column) => (
-                  <td key={column.key} className="px-4 py-4">
+                  <td 
+                    key={column.key} 
+                    className={cn("px-4 py-4", column.className)}
+                  >
                     {column.render(item)}
                   </td>
                 ))}
