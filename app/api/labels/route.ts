@@ -8,7 +8,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    const response = await fetch('http://4.213.57.100:3100/api/v1/labels', {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/labels`, {
       headers: {
         'Authorization': token,
       },

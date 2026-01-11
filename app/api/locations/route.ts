@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const filterChildren = searchParams.get("filterChildren");
 
-    const url = new URL('http://4.213.57.100:3100/api/v1/locations');
+    const url = new URL(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/locations`);
     if (filterChildren) {
         url.searchParams.append("filterChildren", filterChildren);
     }
@@ -45,7 +45,7 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
 
-    const response = await fetch('http://4.213.57.100:3100/api/v1/locations', {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/locations`, {
       method: 'POST',
       headers: {
         'Authorization': token,

@@ -6,7 +6,7 @@ interface Column<T> {
   key: string;
   header: string;
   width?: string;
-  className?: string; // Add this if not present
+  className?: string;
   render: (item: T) => ReactNode;
 }
 

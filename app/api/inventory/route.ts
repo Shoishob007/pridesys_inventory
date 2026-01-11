@@ -65,7 +65,7 @@ export async function GET(request: Request) {
     });
 
     const queryString = backendParams.toString();
-    const baseUrl = `http://4.213.57.100:3100/api/v1/items?${queryString}`;
+    const baseUrl = `${process.env.NEXT_PUBLIC_API_URL}/api/v1/items?${queryString}`;
 
     const allItems = await fetchAllPages(baseUrl, token);
 

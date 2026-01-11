@@ -14,7 +14,7 @@ export async function GET(
     const { id } = params;
 
     const response = await fetch(
-      `http://4.213.57.100:3100/api/v1/items/${id}`,
+      `${process.env.NEXT_PUBLIC_API_URL}/api/v1/items/${id}`,
       {
         headers: {
           Authorization: token,
@@ -50,7 +50,7 @@ export async function PUT(
     const body = await request.json();
 
     const response = await fetch(
-      `http://4.213.57.100:3100/api/v1/items/${id}`,
+      `${process.env.NEXT_PUBLIC_API_URL}/api/v1/items/${id}`,
       {
         method: "PUT",
         headers: {
@@ -88,7 +88,7 @@ export async function DELETE(
     const { id } = params;
 
     const response = await fetch(
-      `http://4.213.57.100:3100/api/v1/items/${id}`,
+      `${process.env.NEXT_PUBLIC_API_URL}/api/v1/items/${id}`,
       {
         method: "DELETE",
         headers: {

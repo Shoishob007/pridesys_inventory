@@ -163,7 +163,7 @@ export default function Login() {
             <p className="text-center text-sm text-muted-foreground mt-6">
               No account? Register via API (see{" "}
               <a
-                href="http://4.213.57.100:3100/swagger/index.html"
+                href={`${process.env.NEXT_PUBLIC_API_URL}/swagger/index.html`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-primary hover:underline font-medium"

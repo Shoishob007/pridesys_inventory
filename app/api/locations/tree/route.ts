@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const url = 'http://4.213.57.100:3100/api/v1/locations/tree';
+    const url = `${process.env.NEXT_PUBLIC_API_URL}/api/v1/locations/tree`;
 
     const response = await fetch(url, {
       headers: {

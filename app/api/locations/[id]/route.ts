@@ -12,7 +12,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
   try {
     const body = await request.json();
 
-    const response = await fetch(`http://4.213.57.100:3100/api/v1/locations/${params.id}`, {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/locations/${params.id}`, {
       method: 'PUT',
       headers: {
         'Authorization': token,
@@ -42,7 +42,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
   }
 
   try {
-    const response = await fetch(`http://4.213.57.100:3100/api/v1/locations/${params.id}`, {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/locations/${params.id}`, {
       method: 'DELETE',
       headers: {
         'Authorization': token,
