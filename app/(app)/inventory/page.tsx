@@ -369,9 +369,17 @@ export default function Inventory() {
     <div className="space-y-4 sm:space-y-6">
       <div className="space-y-3 sm:space-y-4">
         <div className="flex items-center justify-between">
-          <h1 className="text-xl sm:text-2xl font-bold text-foreground">
+<div className="flex items-center gap-3">
+<h1 className="text-xl sm:text-2xl font-bold text-foreground">
             Inventory
           </h1>
+          <SearchInput
+          value={searchQuery}
+          onChange={handleSearchChange}
+          placeholder="Search items..."
+          className="w-full"
+        />
+</div>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" className="hidden sm:flex">
               <Download className="h-4 w-4 mr-2" />
@@ -383,12 +391,6 @@ export default function Inventory() {
             </Button>
           </div>
         </div>
-        <SearchInput
-          value={searchQuery}
-          onChange={handleSearchChange}
-          placeholder="Search items..."
-          className="w-full"
-        />
       </div>
 
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">

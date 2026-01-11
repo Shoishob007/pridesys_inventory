@@ -9,7 +9,7 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const response = await fetch('http://4.213.57.100:3100/api/v1/items', {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/items`, {
       method: 'POST',
       headers: {
         'Authorization': token,

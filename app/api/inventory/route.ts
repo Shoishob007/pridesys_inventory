@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 const fetchAllPages = async (url: string, token: string) => {
   let allItems: any[] = [];
   let page = 1;
-  const pageSize = 500; // Fetch 500 items per page
+  const pageSize = 50;
 
   while (true) {
     const response = await fetch(`${url}&page=${page}&pageSize=${pageSize}`, {
@@ -22,12 +22,10 @@ const fetchAllPages = async (url: string, token: string) => {
     if (data && data.items && data.items.length > 0) {
       allItems = allItems.concat(data.items);
       if (data.items.length < pageSize) {
-        // Last page reached
         break;
       }
       page++;
     } else {
-      // No more items
       break;
     }
   }

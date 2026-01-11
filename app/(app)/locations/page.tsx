@@ -30,8 +30,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { AddChildLocationDialog } from "@/components/locations/AddChildLocationsDialog";
 import { LocationForm } from "@/components/locations/LocationsForm";
+import { AddChildLocationDialog } from "@/components/locations/AddChildLocationsDialog";
 
 const iconMap: Record<string, React.ElementType> = {
   home: Home,
@@ -39,17 +39,25 @@ const iconMap: Record<string, React.ElementType> = {
   warehouse: Warehouse,
 };
 
-const findLocationById = (locations: Location[], id: string): Location | null => {
-  for (const location of locations) {
-    if (location.id === id) return location;
-    if (location.children) {
-      const found = findLocationById(location.children, id);
-      if (found) return found;
-    }
-  }
-  return null;
-};
+const mergeLocationDetails = (tree: Location[], details: Location[]): Location[] => {
+  const detailsMap = new Map(details.map(loc => [loc.id, loc]));
+  
+  const recursivelyMerge = (locations: Location[]): Location[] => {
+    return locations.map(loc => {
+      const detailInfo = detailsMap.get(loc.id);
+      return {
+        ...loc,
+        itemCount: detailInfo?.itemCount ?? 0,
+        createdAt: detailInfo?.createdAt ?? loc.createdAt,
+        updatedAt: detailInfo?.updatedAt ?? loc.updatedAt,
+        description: detailInfo?.description ?? loc.description,
+        children: loc.children ? recursivelyMerge(loc.children) : [],
+      };
+    });
+  };
 
+  return recursivelyMerge(tree);
+};
 
 const filterLocations = (locations: Location[], query: string): Location[] => {
   if (!query.trim()) return locations;
@@ -85,7 +93,7 @@ function LocationTreeItem({
   onSelect,
   isSearching = false,
 }: LocationTreeItemProps) {
-  const [isExpanded, setIsExpanded] = useState(isSearching || level === 0);
+  const [isExpanded, setIsExpanded] = useState(isSearching || level < 1);
 
   const Icon = (location.icon && iconMap[location.icon]) || MapPin;
   const hasChildren = location.children && location.children.length > 0;
@@ -156,7 +164,7 @@ function LocationTreeItem({
 export default function Locations() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
-  const [locations, setLocations] = useState<Location[]>([]);
+  const [allLocations, setAllLocations] = useState<Location[]>([]);
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -165,46 +173,61 @@ export default function Locations() {
   const [locationToDelete, setLocationToDelete] = useState<Location | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingLocation, setEditingLocation] = useState<Location | null>(null);
-  const [newLocationParentId, setNewLocationParentId] = useState<string | null>(
-    null
-  );
   const [isAddChildDialogOpen, setIsAddChildDialogOpen] = useState(false);
 
-  const fetchLocations = useCallback(async (token: string) => {
+  const fetchAndMergeLocations = useCallback(async (token: string) => {
     try {
-      const response = await fetch("/api/locations/tree", {
-        headers: { Authorization: token },
-      });
-      if (!response.ok) throw new Error("Failed to fetch locations");
-      const data = await response.json();
-      setLocations(data);
-      if (!selectedLocation && data.length > 0) {
-        setSelectedLocation(data[0]);
+      const [treeRes, detailsRes] = await Promise.all([
+        fetch("/api/locations/tree", { headers: { Authorization: token } }),
+        fetch("/api/locations", { headers: { Authorization: token } }),
+      ]);
+
+      if (!treeRes.ok) throw new Error("Failed to fetch location hierarchy");
+      if (!detailsRes.ok) throw new Error("Failed to fetch location details");
+
+      const treeData = await treeRes.json();
+      const detailsData = await detailsRes.json();
+
+      console.log("Tree data:", treeData);
+      console.log("Details data:", detailsData);
+
+      const locationTree = Array.isArray(treeData) ? treeData : [];
+      const locationDetails = Array.isArray(detailsData) 
+        ? detailsData 
+        : (Array.isArray(detailsData?.locations) ? detailsData.locations : []);
+      
+      console.log("Location details extracted:", locationDetails);
+      
+      const mergedData = mergeLocationDetails(locationTree, locationDetails);
+      console.log("Merged data:", mergedData);
+      setAllLocations(mergedData);
+      
+      if (mergedData.length > 0 && !selectedLocation) {
+        setSelectedLocation(mergedData[0]);
       }
-    } catch (err) {
-      setError("Could not fetch locations.");
+    } catch (err: any) {
+      setError(err.message || "Could not fetch locations.");
       console.error(err);
     }
-  }, []);
+  }, [selectedLocation]);
 
-  const fetchInventoryItems = useCallback(async (token: string, locationName: string) => {
+  const fetchInventoryItems = useCallback(async (token: string, locationId: string) => {
+    if (!locationId) return;
     try {
-      setInventoryItems([]); // Clear previous items
-      const response = await fetch(`/api/items?locations=${encodeURIComponent(locationName)}`, {
+      setInventoryItems([]);
+      const response = await fetch(`/api/inventory?locations=${encodeURIComponent(locationId)}`, {
         headers: { Authorization: token },
       });
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to fetch inventory items");
+        throw new Error("Failed to fetch inventory items");
       }
       const data = await response.json();
-      setInventoryItems(Array.isArray(data) ? data : []);
-    } catch (err) {
-      setError("Could not fetch inventory items.");
+      setInventoryItems(Array.isArray(data?.items) ? data.items : []);
+    } catch (err: any) {
+      setError(err.message || "Could not fetch inventory items.");
       console.error(err);
     }
   }, []);
-
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -212,45 +235,43 @@ export default function Locations() {
       router.push("/login");
       return;
     }
-
     setIsLoading(true);
-    fetchLocations(token).finally(() => setIsLoading(false));
-  }, [fetchLocations, router]);
+    fetchAndMergeLocations(token).finally(() => setIsLoading(false));
+  }, [fetchAndMergeLocations, router]);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
-    if (token && selectedLocation) {
-        fetchInventoryItems(token, selectedLocation.name);
+    if (token && selectedLocation?.id) {
+      fetchInventoryItems(token, selectedLocation.id);
+    } else {
+      setInventoryItems([]);
     }
-  }, [fetchInventoryItems, selectedLocation]);
+  }, [selectedLocation, fetchInventoryItems]);
 
   const filteredLocations = useMemo(() => {
-    return filterLocations(locations, searchQuery);
-  }, [locations, searchQuery]);
+    return filterLocations(allLocations, searchQuery);
+  }, [allLocations, searchQuery]);
   
   const getBreadcrumbPath = useCallback((locationId: string): string[] => {
     const path: string[] = [];
-    
-    function findPath(currentLocations: Location[], targetId: string, currentPath: string[]): boolean {
-        for (const loc of currentLocations) {
-            const newPath = [...currentPath, loc.name];
-            if (loc.id === targetId) {
-                path.push(...newPath);
-                return true;
-            }
-            if (loc.children && loc.children.length > 0) {
-                if (findPath(loc.children, targetId, newPath)) {
-                    return true;
-                }
-            }
+    const findPath = (currentLocations: Location[], targetId: string, currentPath: string[]): boolean => {
+      for (const loc of currentLocations) {
+        const newPath = [...currentPath, loc.name];
+        if (loc.id === targetId) {
+          path.push(...newPath);
+          return true;
         }
-        return false;
-    }
-
-    findPath(locations, locationId, []);
+        if (loc.children?.length) {
+          if (findPath(loc.children, targetId, newPath)) {
+            return true;
+          }
+        }
+      }
+      return false;
+    };
+    findPath(allLocations, locationId, []);
     return path;
-}, [locations]);
-
+  }, [allLocations]);
 
   const handleSelectLocation = (location: Location) => {
     setSelectedLocation(location);
@@ -263,31 +284,21 @@ export default function Locations() {
 
   const handleDeleteLocation = async () => {
     if (!locationToDelete) return;
-
     const token = localStorage.getItem("token");
-    if (!token) {
-      toast.error("Authentication token not found.");
-      return;
-    }
-
+    if (!token) return toast.error("Authentication token not found.");
     try {
       const response = await fetch(`/api/locations/${locationToDelete.id}`, {
         method: "DELETE",
-        headers: {
-          Authorization: token,
-        },
+        headers: { Authorization: token },
       });
-
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || "Failed to delete location");
       }
-
       toast.success("Location deleted successfully");
-      await fetchLocations(token); // Refresh the locations list
-      setSelectedLocation(null); // Deselect the deleted location
+      await fetchAndMergeLocations(token);
+      setSelectedLocation(null);
     } catch (error: any) {
-      console.error("Delete error:", error);
       toast.error(error.message || "Failed to delete location");
     } finally {
       setDeleteDialogOpen(false);
@@ -297,15 +308,10 @@ export default function Locations() {
 
   const handleSaveLocation = async (locationData: Partial<Location>) => {
     const token = localStorage.getItem("token");
-    if (!token) {
-      toast.error("Authentication token not found.");
-      return;
-    }
-
+    if (!token) return toast.error("Authentication token not found.");
+    
     const isUpdating = !!locationData.id;
-    const url = isUpdating
-      ? `/api/locations/${locationData.id}`
-      : "/api/locations";
+    const url = isUpdating ? `/api/locations/${locationData.id}` : "/api/locations";
     const method = isUpdating ? "PUT" : "POST";
 
     try {
@@ -319,39 +325,81 @@ export default function Locations() {
         const errorData = await response.json();
         throw new Error(errorData.message || "Failed to save location");
       }
-
       toast.success(`Location ${isUpdating ? "updated" : "added"} successfully`);
-      await fetchLocations(token); // Refresh the locations list
-      setIsFormOpen(false); // Close the form
+      await fetchAndMergeLocations(token);
+      setIsFormOpen(false);
     } catch (error: any) {
-      console.error("Save error:", error);
       toast.error(error.message || "Failed to save location");
     }
   };
 
   const handleAddChildren = async (childrenIds: string[]) => {
     const token = localStorage.getItem("token");
-    if (!token) {
-      toast.error("Authentication token not found.");
-      return;
+    if (!token) return toast.error("Authentication token not found.");
+
+    if (!selectedLocation?.id) {
+      return toast.error("No parent location selected");
     }
 
     try {
-      await Promise.all(
-        childrenIds.map((childId) =>
-          fetch(`/api/locations/${childId}`,
-          {
+      const allFlatLocations: Location[] = [];
+      const flattenLocations = (locs: Location[]) => {
+        locs.forEach((loc) => {
+          allFlatLocations.push(loc);
+          if (loc.children && loc.children.length > 0) {
+            flattenLocations(loc.children);
+          }
+        });
+      };
+      flattenLocations(allLocations);
+
+      const results = await Promise.allSettled(
+        childrenIds.map(async (childId) => {
+          const childLocation = allFlatLocations.find((loc) => loc.id === childId);
+          
+          if (!childLocation) {
+            throw new Error(`Location with id ${childId} not found`);
+          }
+
+          const response = await fetch(`/api/locations/${childId}`, {
             method: "PUT",
             headers: { "Content-Type": "application/json", Authorization: token },
-            body: JSON.stringify({ parentId: selectedLocation?.id }),
-          })
-        )
+            body: JSON.stringify({
+              id: childLocation.id,
+              name: childLocation.name,
+              description: childLocation.description || "",
+              parentId: selectedLocation.id,
+            }),
+          });
+          
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.message || `Failed to update location ${childLocation.name}`);
+          }
+          
+          return response.json();
+        })
       );
 
-      toast.success("Child locations added successfully");
-      await fetchLocations(token);
+      const failures = results.filter((r) => r.status === 'rejected');
+      
+      if (failures.length > 0) {
+        console.error("Failed to add some children:", failures);
+        const failedCount = failures.length;
+        const successCount = results.length - failedCount;
+        if (successCount > 0) {
+          toast.warning(`Added ${successCount} location(s), but ${failedCount} failed`);
+        } else {
+          toast.error(`Failed to add all ${failedCount} location(s)`);
+        }
+      } else {
+        toast.success(`Successfully added ${childrenIds.length} child location(s)`);
+      }
+      
+      await fetchAndMergeLocations(token);
+      setIsAddChildDialogOpen(false);
     } catch (error: any) {
-      console.error("Add children error:", error);
+      console.error("Error adding children:", error);
       toast.error(error.message || "Failed to add child locations");
     }
   };
@@ -360,12 +408,11 @@ export default function Locations() {
     return <div className="text-center py-10">Loading...</div>;
   }
 
-  if (error && !locations.length) {
+  if (error && !allLocations.length) {
     return <div className="text-center py-10 text-destructive">{error}</div>;
   }
   
   const breadcrumbPath = selectedLocation ? getBreadcrumbPath(selectedLocation.id) : [];
-
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -380,11 +427,7 @@ export default function Locations() {
         </div>
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="icon">
-            <Bell
-              className={cn("h-5 w-5", {
-                "text-destructive-foreground": locations.length > 5,
-              })}
-            />
+            <Bell className={cn("h-5 w-5", { "text-destructive-foreground": allLocations.length > 5 })} />
           </Button>
           <Button variant="ghost" size="icon">
             <HelpCircle className="h-5 w-5" />
@@ -396,22 +439,19 @@ export default function Locations() {
         <div className="bg-card rounded-xl border p-4 space-y-4 lg:min-h-screen">
           <SearchInput
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e)}
+            onChange={setSearchQuery}
             placeholder="Search locations..."
           />
-
           <Button
             className="w-full"
             onClick={() => {
               setEditingLocation(null);
-              setNewLocationParentId(null);
               setIsFormOpen(true);
             }}
           >
             <Plus className="h-4 w-4" />
             New Location
           </Button>
-
           <div className="space-y-1">
             {filteredLocations.length > 0 ? (
               filteredLocations.map((location) => (
@@ -454,36 +494,15 @@ export default function Locations() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="flex-1 sm:flex-initial"
-                      onClick={() => {
-                        setEditingLocation(selectedLocation);
-                        setNewLocationParentId(null);
-                        setIsFormOpen(true);
-                      }}
-                    >
+                    <Button variant="outline" size="sm" className="flex-1 sm:flex-initial" onClick={() => { setEditingLocation(selectedLocation); setIsFormOpen(true);}}>
                       <Edit className="h-4 w-4" />
                       <span className="hidden sm:inline ml-2">Edit</span>
                     </Button>
-                    <Button
-                      variant="outline-success"
-                      size="sm"
-                      className="flex-1 sm:flex-initial whitespace-nowrap"
-                      onClick={() => {
-                        setIsAddChildDialogOpen(true);
-                      }}
-                    >
+                    <Button variant="outline-success" size="sm" className="flex-1 sm:flex-initial whitespace-nowrap" onClick={() => { setIsAddChildDialogOpen(true); }}>
                       <Plus className="h-4 w-4" />
                       <span className="hidden sm:inline ml-2">Add Child</span>
                     </Button>
-                    <Button
-                      variant="outline-destructive"
-                      size="sm"
-                      className="flex-1 sm:flex-initial"
-                      onClick={() => handleDeleteConfirmation(selectedLocation)}
-                    >
+                    <Button variant="outline-destructive" size="sm" className="flex-1 sm:flex-initial" onClick={() => handleDeleteConfirmation(selectedLocation)}>
                       <Trash2 className="h-4 w-4" />
                       <span className="hidden sm:inline ml-2">Delete</span>
                     </Button>
@@ -503,29 +522,17 @@ export default function Locations() {
 
                 <div className="grid grid-cols-3 gap-3 sm:gap-6 pt-4 border-t">
                   <div>
-                    <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">
-                      Items
-                    </p>
-                    <p className="text-xl sm:text-2xl font-bold text-foreground">
-                      {inventoryItems.length}
-                    </p>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Items</p>
+                    <p className="text-xl sm:text-2xl font-bold text-foreground">{selectedLocation.itemCount || 0}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">
-                      Total Value
-                    </p>
-                    <p className="text-lg sm:text-2xl font-bold text-foreground break-all">
-                      $0.00
-                    </p>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Total Value</p>
+                    <p className="text-lg sm:text-2xl font-bold text-foreground break-all">$0.00</p>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">
-                      Created
-                    </p>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Created</p>
                     <p className="text-sm sm:text-base text-foreground">
-                      {selectedLocation.createdAt
-                        ? new Date(selectedLocation.createdAt).toLocaleDateString()
-                        : "N/A"}
+                      {selectedLocation.createdAt ? new Date(selectedLocation.createdAt).toLocaleDateString() : "N/A"}
                     </p>
                   </div>
                 </div>
@@ -592,16 +599,15 @@ export default function Locations() {
         open={isFormOpen}
         onOpenChange={setIsFormOpen}
         location={editingLocation}
-        parentId={newLocationParentId}
         onSave={handleSaveLocation}
-        locations={locations}
+        locations={allLocations}
       />
       {selectedLocation && (
         <AddChildLocationDialog
           open={isAddChildDialogOpen}
           onOpenChange={setIsAddChildDialogOpen}
           parentLocation={selectedLocation}
-          locations={locations}
+          locations={allLocations}
           onAddChildren={handleAddChildren}
         />
       )}
