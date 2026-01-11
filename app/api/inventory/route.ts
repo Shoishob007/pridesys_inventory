@@ -1,5 +1,40 @@
 import { NextResponse } from "next/server";
 
+const fetchAllPages = async (url: string, token: string) => {
+  let allItems: any[] = [];
+  let page = 1;
+  const pageSize = 500; // Fetch 500 items per page
+
+  while (true) {
+    const response = await fetch(`${url}&page=${page}&pageSize=${pageSize}`, {
+      headers: {
+        Authorization: token,
+      },
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to fetch page ${page}: ${errorText}`);
+    }
+
+    const data = await response.json();
+
+    if (data && data.items && data.items.length > 0) {
+      allItems = allItems.concat(data.items);
+      if (data.items.length < pageSize) {
+        // Last page reached
+        break;
+      }
+      page++;
+    } else {
+      // No more items
+      break;
+    }
+  }
+
+  return allItems;
+};
+
 export async function GET(request: Request) {
   const token = request.headers.get("Authorization");
 
@@ -9,18 +44,12 @@ export async function GET(request: Request) {
 
   try {
     const { searchParams } = new URL(request.url);
-
     const backendParams = new URLSearchParams();
 
     const q = searchParams.get("q");
     if (q) {
       backendParams.append("q", q);
     }
-
-    const page = searchParams.get("page");
-    const pageSize = searchParams.get("pageSize");
-    if (page) backendParams.append("page", page);
-    if (pageSize) backendParams.append("pageSize", pageSize);
 
     const labels = searchParams.getAll("labels");
     labels.forEach((label) => {
@@ -38,22 +67,11 @@ export async function GET(request: Request) {
     });
 
     const queryString = backendParams.toString();
+    const baseUrl = `http://4.213.57.100:3100/api/v1/items?${queryString}`;
 
-    const response = await fetch(`http://4.213.57.100:3100/api/v1/items${
-      queryString ? `?${queryString}` : ""
-    }`, {
-      headers: {
-        Authorization: token,
-      },
-    });
+    const allItems = await fetchAllPages(baseUrl, token);
 
-    if (response.ok) {
-      const data = await response.json();
-      return NextResponse.json(data);
-    } else {
-      const errorText = await response.text();
-      return new NextResponse(errorText, { status: response.status });
-    }
+    return NextResponse.json({ items: allItems });
   } catch (error) {
     console.error("Failed to fetch inventory items:", error);
     return new NextResponse("Internal Server Error", { status: 500 });

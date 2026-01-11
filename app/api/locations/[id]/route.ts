@@ -1,41 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-export async function GET(request: NextRequest) {
-  const token = request.headers.get('Authorization');
-
-  if (!token) {
-    return new NextResponse('Unauthorized', { status: 401 });
-  }
-
-  try {
-    const { searchParams } = new URL(request.url);
-    const filterChildren = searchParams.get("filterChildren");
-
-    const url = new URL('http://4.213.57.100:3100/api/v1/locations');
-    if (filterChildren) {
-        url.searchParams.append("filterChildren", filterChildren);
-    }
-
-    const response = await fetch(url.toString(), {
-      headers: {
-        'Authorization': token,
-      },
-    });
-
-    if (response.ok) {
-      const data = await response.json();
-      return NextResponse.json(data);
-    } else {
-        const errorText = await response.text();
-        return new NextResponse(errorText, { status: response.status });
-    }
-  } catch (error) {
-    console.error('Failed to fetch locations:', error);
-    return new NextResponse('Internal Server Error', { status: 500 });
-  }
-}
-
-export async function POST(request: Request) {
+export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   const token = request.headers.get('Authorization');
 
   if (!token) {
@@ -45,8 +10,8 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
 
-    const response = await fetch('http://4.213.57.100:3100/api/v1/locations', {
-      method: 'POST',
+    const response = await fetch(`http://4.213.57.100:3100/api/v1/locations/${params.id}`, {
+      method: 'PUT',
       headers: {
         'Authorization': token,
         'Content-Type': 'application/json',
@@ -62,7 +27,34 @@ export async function POST(request: Request) {
         return new NextResponse(errorText, { status: response.status });
     }
   } catch (error) {
-    console.error('Failed to create location:', error);
+    console.error(`Failed to update location ${params.id}:`, error);
+    return new NextResponse('Internal Server Error', { status: 500 });
+  }
+}
+
+export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+  const token = request.headers.get('Authorization');
+
+  if (!token) {
+    return new NextResponse('Unauthorized', { status: 401 });
+  }
+
+  try {
+    const response = await fetch(`http://4.213.57.100:3100/api/v1/locations/${params.id}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': token,
+      },
+    });
+
+    if (response.ok) {
+      return new NextResponse(null, { status: 204 });
+    } else {
+        const errorText = await response.text();
+        return new NextResponse(errorText, { status: response.status });
+    }
+  } catch (error) {
+    console.error(`Failed to delete location ${params.id}:`, error);
     return new NextResponse('Internal Server Error', { status: 500 });
   }
 }

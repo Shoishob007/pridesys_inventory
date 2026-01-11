@@ -31,8 +31,12 @@ export interface Location {
   id: string;
   name: string;
   description?: string;
+  icon?: string;
+  parentId?: string | null;
+  children?: Location[];
   createdAt?: string;
   updatedAt?: string;
+  itemCount?: number;
 }
 
 export interface Attachment {
@@ -78,6 +82,7 @@ export interface InventoryItem {
   soldPrice?: number;
   soldNotes?: string;
   notes?: string;
+  condition?: string;
   attachments?: Attachment[];
   fields?: CustomField[];
 }
