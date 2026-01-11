@@ -33,6 +33,7 @@ import {
 import { LocationForm } from "@/components/locations/LocationsForm";
 import { AddChildLocationDialog } from "@/components/locations/AddChildLocationsDialog";
 import { TableSkeleton } from "@/components/common/TableSkeleton";
+import { LocationsSkeleton } from "@/components/common/LocationSkeleton";
 
 const iconMap: Record<string, React.ElementType> = {
   home: Home,
@@ -447,7 +448,7 @@ export default function Locations() {
   };
 
   if (isLoading) {
-    return <TableSkeleton rows={8} columns={6} />;
+    return <LocationsSkeleton />;
   }
 
   if (error && !allLocations.length) {
