@@ -259,6 +259,10 @@ export default function Inventory() {
 
   const getLocationName = (locationId: string | undefined) =>
     locationOptions.find((l) => l.value === locationId)?.label || "N/A";
+  
+  const handleRowClick = (item: InventoryItem) => {
+    router.push(`/inventory/${item.id}`);
+  };
 
   const columns = [
     {
@@ -333,29 +337,31 @@ export default function Inventory() {
       header: "",
       width: "60px",
       render: (item: InventoryItem) => (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="h-8 w-8 p-0">
-              <MoreVertical className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem
-              onClick={() => router.push(`/inventory/${item.id}`)}
-            >
-              View Details
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleEditItem(item)}>
-              Edit
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              className="text-destructive"
-              onClick={() => handleDeleteConfirmation(item)}
-            >
-              Delete
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <div onClick={(e) => e.stopPropagation()}>
+            <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="h-8 w-8 p-0">
+                <MoreVertical className="h-4 w-4" />
+                </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                onClick={() => router.push(`/inventory/${item.id}`)}
+                >
+                View Details
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleEditItem(item)}>
+                Edit
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                className="text-destructive"
+                onClick={() => handleDeleteConfirmation(item)}
+                >
+                Delete
+                </DropdownMenuItem>
+            </DropdownMenuContent>
+            </DropdownMenu>
+        </div>
       ),
     },
   ];
@@ -443,6 +449,7 @@ export default function Inventory() {
           selectable
           selectedItems={selectedRows}
           onSelectionChange={setSelectedRows}
+          onRowClick={handleRowClick}
         />
       )}
 

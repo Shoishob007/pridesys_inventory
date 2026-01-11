@@ -18,6 +18,7 @@ interface DataTableProps<T> {
   selectedItems?: string[];
   onSelectionChange?: (ids: string[]) => void;
   className?: string;
+  onRowClick?: (item: T) => void;
 }
 
 export function DataTable<T>({
@@ -28,6 +29,7 @@ export function DataTable<T>({
   selectedItems = [],
   onSelectionChange,
   className,
+  onRowClick,
 }: DataTableProps<T>) {
   const allSelected = data.length > 0 && selectedItems.length === data.length;
 
@@ -82,13 +84,15 @@ export function DataTable<T>({
             return (
               <tr
                 key={id}
+                onClick={() => onRowClick?.(item)}
                 className={cn(
                   "hover:bg-muted/30 transition-colors",
-                  isSelected && "bg-primary/5"
+                  isSelected && "bg-primary/5",
+                  onRowClick && "cursor-pointer"
                 )}
               >
                 {selectable && (
-                  <td className="px-4 py-4">
+                  <td className="px-4 py-4" onClick={(e) => e.stopPropagation()}>
                     <Checkbox
                       checked={isSelected}
                       onCheckedChange={() => toggleSelectItem(id)}
