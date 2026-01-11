@@ -27,12 +27,57 @@ export interface Label {
   updatedAt?: string;
 }
 
+export interface Location {
+  id: string;
+  name: string;
+  description?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface Attachment {
+  id: string;
+  name: string;
+  url: string;
+  size?: number;
+  type?: string;
+  createdAt?: string;
+}
+
+export interface CustomField {
+  id: string;
+  name: string;
+  value: string;
+}
+
 export interface InventoryItem {
   id: string;
   name: string;
   description?: string;
   quantity: number;
-  locationId: string;
+  locationId?: string;
+  location?: Location;
   labels: Label[];
   updatedAt: string;
+  createdAt?: string;
+  assetId?: string;
+  insured?: boolean;
+  archived?: boolean;
+  purchasePrice?: number;
+  syncChildItemsLocations?: boolean;
+  serialNumber?: string;
+  modelNumber?: string;
+  manufacturer?: string;
+  lifetimeWarranty?: boolean;
+  warrantyExpires?: string;
+  warrantyDetails?: string;
+  purchaseTime?: string;
+  purchaseFrom?: string;
+  soldTime?: string;
+  soldTo?: string;
+  soldPrice?: number;
+  soldNotes?: string;
+  notes?: string;
+  attachments?: Attachment[];
+  fields?: CustomField[];
 }

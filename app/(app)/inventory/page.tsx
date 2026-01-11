@@ -1,32 +1,32 @@
-'use client';
-import { useState, useCallback, useMemo, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { Plus, Download, MoreVertical } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { SearchInput } from '@/components/common/SearchInput';
-import { FilterChip } from '@/components/common/FilterChip';
-import { DataTable } from '@/components/common/DataTable';
-import { Pagination } from '@/components/common/Pagination';
-import { LabelBadge } from '@/components/common/LabelBadge';
-import { ItemImage } from '@/components/common/ItemImage';
-import { TableSkeleton } from '@/components/common/TableSkeleton';
-import { ErrorState } from '@/components/common/ErrorState';
-import { EmptyState } from '@/components/common/EmptyState';
+"use client";
+import { useState, useCallback, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { Plus, Download, MoreVertical } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { SearchInput } from "@/components/common/SearchInput";
+import { FilterChip } from "@/components/common/FilterChip";
+import { DataTable } from "@/components/common/DataTable";
+import { Pagination } from "@/components/common/Pagination";
+import { LabelBadge } from "@/components/common/LabelBadge";
+import { ItemImage } from "@/components/common/ItemImage";
+import { TableSkeleton } from "@/components/common/TableSkeleton";
+import { ErrorState } from "@/components/common/ErrorState";
+import { EmptyState } from "@/components/common/EmptyState";
 import {
   SortDropdown,
   SortField,
   SortDirection,
-} from '@/components/common/SortDropdown';
-import { FilterDropdown } from '@/components/common/FilterDropdown';
-import { ItemFormDrawer } from '@/components/inventory/ItemFormDrawer';
-import { InventoryItem, FilterValue, Label, FilterSubOption } from '@/types';
+} from "@/components/common/SortDropdown";
+import { FilterDropdown } from "@/components/common/FilterDropdown";
+import { ItemFormDrawer } from "@/components/inventory/ItemFormDrawer";
+import { InventoryItem, FilterValue, Label, FilterSubOption } from "@/types";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { toast } from 'sonner';
+} from "@/components/ui/dropdown-menu";
+import { toast } from "sonner";
 
 interface Location {
   id: string;
@@ -38,10 +38,11 @@ export default function Inventory() {
   const [data, setData] = useState<InventoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const [sortField, setSortField] = useState<SortField>('updatedAt');
-  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+  const [totalItems, setTotalItems] = useState(0);
+  const [sortField, setSortField] = useState<SortField>("updatedAt");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [filters, setFilters] = useState<FilterValue[]>([]);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
@@ -51,126 +52,125 @@ export default function Inventory() {
   const itemsPerPage = 8;
 
   const refetch = useCallback(() => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      setIsLoading(true);
-      const headers = { Authorization: token };
+    const token = localStorage.getItem("token");
+    if (!token) return;
 
-      const inventoryPromise = fetch('/api/inventory', { headers }).then(res => {
-        if (!res.ok) throw new Error('Failed to fetch inventory');
-        return res.json();
-      });
+    setIsLoading(true);
+    const headers = { Authorization: token };
 
-      const locationsPromise = fetch('/api/locations', { headers }).then(res => {
-        if (!res.ok) throw new Error('Failed to fetch locations');
-        return res.json();
-      });
+    // Build query parameters
+    const queryParams = new URLSearchParams();
 
-      const labelsPromise = fetch('/api/labels', { headers }).then(res => {
-        if (!res.ok) throw new Error('Failed to fetch labels');
-        return res.json();
-      });
-
-      Promise.all([inventoryPromise, locationsPromise, labelsPromise])
-        .then(([inventoryData, locationsData, labelsData]) => {
-          const items = Array.isArray(inventoryData.items) ? inventoryData.items : [];
-          const transformedItems = items.map((item: any) => ({
-            ...item,
-            locationId: item.location?.id,
-            labels: Array.isArray(item.labels) ? item.labels : []
-          }));
-          
-          setData(transformedItems);
-
-          const locations: Location[] = Array.isArray(locationsData) ? locationsData : [];
-          setLocationOptions(
-            locations.map((loc) => ({
-              id: loc.id,
-              value: loc.id,
-              label: loc.name,
-            }))
-          );
-
-          const labels: Label[] = Array.isArray(labelsData) ? labelsData : [];
-          setLabelOptions(
-            labels.map((label) => ({
-              id: label.id,
-              value: label.id,
-              label: label.name,
-              color: label.color,
-            }))
-          );
-
-          setError(null);
-        })
-        .catch((err) => {
-          setError(err.message);
-          setData([]);
-          setLocationOptions([]);
-          setLabelOptions([]);
-        })
-        .finally(() => setIsLoading(false));
+    // Add search query
+    if (searchQuery) {
+      queryParams.append("q", searchQuery);
     }
-  }, []);
+
+    // Add pagination
+    queryParams.append("page", currentPage.toString());
+    queryParams.append("pageSize", itemsPerPage.toString());
+
+    // Add label filters
+    const labelFilters = filters.filter((f) => f.type === "label");
+    labelFilters.forEach((filter) => {
+      queryParams.append("labels", filter.value);
+    });
+
+    // Add location filters
+    const locationFilters = filters.filter((f) => f.type === "location");
+    locationFilters.forEach((filter) => {
+      queryParams.append("locations", filter.value);
+    });
+
+    const queryString = queryParams.toString();
+    const inventoryUrl = `/api/inventory${
+      queryString ? `?${queryString}` : ""
+    }`;
+
+    const inventoryPromise = fetch(inventoryUrl, { headers }).then((res) => {
+      if (!res.ok) throw new Error("Failed to fetch inventory");
+      return res.json();
+    });
+
+    const locationsPromise = fetch("/api/locations", { headers }).then(
+      (res) => {
+        if (!res.ok) throw new Error("Failed to fetch locations");
+        return res.json();
+      }
+    );
+
+    const labelsPromise = fetch("/api/labels", { headers }).then((res) => {
+      if (!res.ok) throw new Error("Failed to fetch labels");
+      return res.json();
+    });
+
+    Promise.all([inventoryPromise, locationsPromise, labelsPromise])
+      .then(([inventoryData, locationsData, labelsData]) => {
+        const items = Array.isArray(inventoryData.items)
+          ? inventoryData.items
+          : [];
+
+        // Apply client-side stock status filter (in-stock/out-of-stock)
+        const statusFilters = filters.filter((f) => f.type === "status");
+        let filteredItems = items;
+
+        if (statusFilters.length > 0) {
+          filteredItems = items.filter((item: any) => {
+            return statusFilters.some((filter) => {
+              if (filter.value === "in-stock") return item.quantity > 0;
+              if (filter.value === "out-of-stock") return item.quantity === 0;
+              return true;
+            });
+          });
+        }
+
+        const transformedItems = filteredItems.map((item: any) => ({
+          ...item,
+          locationId: item.location?.id,
+          labels: Array.isArray(item.labels) ? item.labels : [],
+        }));
+
+        setData(transformedItems);
+        setTotalItems(inventoryData.total || transformedItems.length);
+
+        const locations: Location[] = Array.isArray(locationsData)
+          ? locationsData
+          : [];
+        setLocationOptions(
+          locations.map((loc) => ({
+            id: loc.id,
+            value: loc.id,
+            label: loc.name,
+          }))
+        );
+
+        const labels: Label[] = Array.isArray(labelsData) ? labelsData : [];
+        setLabelOptions(
+          labels.map((label) => ({
+            id: label.id,
+            value: label.id,
+            label: label.name,
+            color: label.color,
+          }))
+        );
+
+        setError(null);
+      })
+      .catch((err) => {
+        setError(err.message);
+        setData([]);
+        setTotalItems(0);
+        setLocationOptions([]);
+        setLabelOptions([]);
+      })
+      .finally(() => setIsLoading(false));
+  }, [currentPage, searchQuery, filters, itemsPerPage]);
 
   useEffect(() => {
     refetch();
   }, [refetch]);
 
-  const processedData = useMemo(() => {
-    let result = data ? [...data] : [];
-
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      result = result.filter(
-        (item) =>
-          item.name.toLowerCase().includes(query) ||
-          (item.description && item.description.toLowerCase().includes(query))
-      );
-    }
-
-    filters.forEach((filter) => {
-      if (filter.type === 'status') {
-        if (filter.value === 'in-stock') {
-          result = result.filter((item) => item.quantity > 0);
-        } else if (filter.value === 'out-of-stock') {
-          result = result.filter((item) => item.quantity === 0);
-        }
-      } else if (filter.type === 'label') {
-        result = result.filter((item) =>
-          item.labels.some((l) => l.id === filter.value)
-        );
-      } else if (filter.type === 'location') {
-        result = result.filter((item) => item.locationId === filter.value);
-      }
-    });
-
-    result.sort((a, b) => {
-      let comparison = 0;
-      switch (sortField) {
-        case 'name':
-          comparison = a.name.localeCompare(b.name);
-          break;
-        case 'quantity':
-          comparison = a.quantity - b.quantity;
-          break;
-        case 'updatedAt':
-        default:
-          comparison = new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
-          break;
-      }
-      return sortDirection === 'asc' ? comparison : -comparison;
-    });
-
-    return result;
-  }, [data, searchQuery, sortField, sortDirection, filters]);
-
-  const totalItems = processedData.length;
   const totalPages = Math.ceil(totalItems / itemsPerPage);
-  const paginatedData = processedData.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
 
   const handleSortChange = (field: SortField, direction: SortDirection) => {
     setSortField(field);
@@ -179,6 +179,17 @@ export default function Inventory() {
 
   const removeFilter = (id: string) => {
     setFilters(filters.filter((f) => f.id !== id));
+    setCurrentPage(1); // Reset to first page when filter changes
+  };
+
+  const handleFiltersChange = (newFilters: FilterValue[]) => {
+    setFilters(newFilters);
+    setCurrentPage(1); // Reset to first page when filters change
+  };
+
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+    setCurrentPage(1); // Reset to first page when search changes
   };
 
   const handleAddItem = () => {
@@ -192,45 +203,46 @@ export default function Inventory() {
   };
 
   const handleSaveItem = async (itemData: Partial<InventoryItem>) => {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem("token");
     if (token) {
       try {
         const requestBody = {
           name: itemData.name,
-          description: itemData.description || '',
+          description: itemData.description || "",
           quantity: itemData.quantity || 0,
           locationId: itemData.locationId,
-          labelIds: itemData.labels?.map(label => label.id) || [],
-          ...(itemData.id && { id: itemData.id })
+          labelIds: itemData.labels?.map((label) => label.id) || [],
+          ...(itemData.id && { id: itemData.id }),
         };
-        
-        const response = await fetch('/api/items', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: token },
+
+        const response = await fetch("/api/items", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: token },
           body: JSON.stringify(requestBody),
         });
-        
-        if (!response.ok) throw new Error('Failed to save item');
-        
-        toast.success(`Item ${itemData.id ? 'updated' : 'added'} successfully`);
+
+        if (!response.ok) throw new Error("Failed to save item");
+
+        toast.success(`Item ${itemData.id ? "updated" : "added"} successfully`);
         refetch();
         setDrawerOpen(false);
       } catch (error) {
-        console.error('Save error:', error);
-        toast.error('Failed to save item');
+        console.error("Save error:", error);
+        toast.error("Failed to save item");
       }
     }
   };
 
-  const getLocationName = (locationId: string) => {
-    return locationOptions.find(l => l.value === locationId)?.label || 'N/A';
+  const getLocationName = (locationId: string | undefined) => {
+    if (!locationId) return "N/A";
+    return locationOptions.find((l) => l.value === locationId)?.label || "N/A";
   };
 
   const columns = [
     {
-      key: 'item',
-      header: 'Item',
-      width: '40%',
+      key: "item",
+      header: "Item",
+      width: "40%",
       render: (item: InventoryItem) => (
         <div className="flex items-center gap-3">
           <ItemImage alt={item.name} />
@@ -246,9 +258,9 @@ export default function Inventory() {
       ),
     },
     {
-      key: 'location',
-      header: 'Location',
-      className: 'hidden sm:table-cell',
+      key: "location",
+      header: "Location",
+      className: "hidden sm:table-cell",
       render: (item: InventoryItem) => (
         <span className="text-sm text-muted-foreground">
           {getLocationName(item.locationId)}
@@ -256,21 +268,29 @@ export default function Inventory() {
       ),
     },
     {
-      key: 'labels',
-      header: 'Labels',
-      className: 'hidden md:table-cell',
+      key: "labels",
+      header: "Labels",
+      className: "hidden md:table-cell",
       render: (item: InventoryItem) => {
-        if (!item.labels || !Array.isArray(item.labels) || item.labels.length === 0) {
-          return <span className="text-xs text-muted-foreground">No labels</span>;
+        if (
+          !item.labels ||
+          !Array.isArray(item.labels) ||
+          item.labels.length === 0
+        ) {
+          return (
+            <span className="text-xs text-muted-foreground">No labels</span>
+          );
         }
-        
+
         return (
           <div className="flex flex-wrap gap-1.5">
             {item.labels.map((itemLabel: Label) => {
-              const fullLabel = labelOptions.find(opt => opt.id === itemLabel.id);
+              const fullLabel = labelOptions.find(
+                (opt) => opt.id === itemLabel.id
+              );
               const badgeName = fullLabel?.label || itemLabel.name;
-              const badgeColor = fullLabel?.color || 'blue';
-              
+              const badgeColor = fullLabel?.color || "blue";
+
               return (
                 <LabelBadge
                   key={itemLabel.id}
@@ -284,19 +304,19 @@ export default function Inventory() {
       },
     },
     {
-      key: 'quantity',
-      header: 'Quantity',
-      width: '80px',
-      className: 'text-right hidden sm:table-cell',
+      key: "quantity",
+      header: "Quantity",
+      width: "80px",
+      className: "text-right hidden sm:table-cell",
       render: (item: InventoryItem) => (
         <span className="text-sm text-foreground">{item.quantity}</span>
       ),
     },
     {
-      key: 'updated',
-      header: 'Updated',
-      width: '150px',
-      className: 'hidden lg:table-cell',
+      key: "updated",
+      header: "Updated",
+      width: "150px",
+      className: "hidden lg:table-cell",
       render: (item: InventoryItem) => (
         <span className="text-sm text-muted-foreground">
           {new Date(item.updatedAt).toLocaleDateString()}
@@ -304,9 +324,9 @@ export default function Inventory() {
       ),
     },
     {
-      key: 'actions',
-      header: '',
-      width: '60px',
+      key: "actions",
+      header: "",
+      width: "60px",
       render: (item: InventoryItem) => (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -315,11 +335,17 @@ export default function Inventory() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => router.push(`/inventory/${item.id}`)}>
+            <DropdownMenuItem
+              onClick={() => router.push(`/inventory/${item.id}`)}
+            >
               View Details
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleEditItem(item)}>Edit</DropdownMenuItem>
-            <DropdownMenuItem className="text-destructive">Delete</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleEditItem(item)}>
+              Edit
+            </DropdownMenuItem>
+            <DropdownMenuItem className="text-destructive">
+              Delete
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       ),
@@ -348,10 +374,7 @@ export default function Inventory() {
         <div className="w-full">
           <SearchInput
             value={searchQuery}
-            onChange={(value) => {
-              setSearchQuery(value);
-              setCurrentPage(1);
-            }}
+            onChange={handleSearchChange}
             placeholder="Search items..."
             className="w-full"
           />
@@ -360,18 +383,18 @@ export default function Inventory() {
 
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div className="flex items-center gap-2 flex-wrap">
-            {filters.map((filter) => (
-              <FilterChip
-                key={filter.id}
-                label={filter.label}
-                onRemove={() => removeFilter(filter.id)}
-              />
-            ))}
+          {filters.map((filter) => (
+            <FilterChip
+              key={filter.id}
+              label={filter.label}
+              onRemove={() => removeFilter(filter.id)}
+            />
+          ))}
           <FilterDropdown
             locationOptions={locationOptions}
             labelOptions={labelOptions}
             activeFilters={filters}
-            onFiltersChange={setFilters}
+            onFiltersChange={handleFiltersChange}
           />
         </div>
         <div className="flex items-center gap-3 justify-between sm:justify-end">
@@ -390,18 +413,28 @@ export default function Inventory() {
         <TableSkeleton rows={8} columns={6} />
       ) : error ? (
         <ErrorState message={error} onRetry={refetch} />
-      ) : paginatedData.length === 0 ? (
+      ) : data.length === 0 ? (
         <EmptyState
           title="No items found"
-          description={searchQuery || filters.length > 0 ? 'Try adjusting your search or filters' : 'Get started by adding your first item'}
-          actionLabel={!searchQuery && filters.length === 0 ? 'Add Item' : undefined}
+          description={
+            searchQuery || filters.length > 0
+              ? "Try adjusting your search or filters"
+              : "Get started by adding your first item"
+          }
+          actionLabel={
+            !searchQuery && filters.length === 0 ? "Add Item" : undefined
+          }
           onAction={handleAddItem}
         />
       ) : (
-        <DataTable columns={columns} data={paginatedData} keyExtractor={(item) => item.id} />
+        <DataTable
+          columns={columns}
+          data={data}
+          keyExtractor={(item) => item.id}
+        />
       )}
 
-      {!isLoading && !error && paginatedData.length > 0 && (
+      {!isLoading && !error && data.length > 0 && (
         <Pagination
           currentPage={currentPage}
           totalPages={totalPages}
