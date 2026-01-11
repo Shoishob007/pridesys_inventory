@@ -1,0 +1,164 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222 47% 11%; /* #334155 in HSL: 221° 39% 11% */
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+
+    --primary: 217 91% 60%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 220 14% 96%;
+    --secondary-foreground: 222 47% 11%;
+
+    --muted: 220 14% 96%;
+    --muted-foreground: 215 25% 47%;
+
+    --accent: 220 14% 96%;
+    --accent-foreground: 222 47% 11%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 142 76% 36%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 221 83% 53%;
+
+    --radius: 0.5rem;
+
+    /* Sidebar - Light theme */
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 222 47% 11%;
+    --sidebar-primary: 221 83% 53%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 14% 96%;
+    --sidebar-accent-foreground: 222 47% 11%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-muted: 215 16% 47%;
+
+    /* Label colors */
+    --label-blue: 221 83% 53%;
+    --label-blue-bg: 221 83% 95%;
+    --label-green: 142 76% 36%;
+    --label-green-bg: 142 76% 95%;
+    --label-red: 0 84% 60%;
+    --label-red-bg: 0 84% 95%;
+    --label-orange: 25 95% 53%;
+    --label-orange-bg: 25 95% 95%;
+    --label-purple: 270 70% 60%;
+    --label-purple-bg: 270 70% 95%;
+    --label-yellow: 45 93% 47%;
+    --label-yellow-bg: 45 93% 95%;
+
+    /* Avatar */
+    --avatar-yellow: 45 93% 70%;
+  }
+
+  .dark {
+    --background: 220 26% 14%;
+    --foreground: 220 14% 96%;
+    --card: 220 26% 18%;
+    --card-foreground: 220 14% 96%;
+    --popover: 220 26% 18%;
+    --popover-foreground: 220 14% 96%;
+    --primary: 221 83% 53%; /* #3B82F6 */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 20% 28%;
+    --secondary-foreground: 220 14% 96%;
+    --muted: 220 20% 28%;
+    --muted-foreground: 215 25% 65%; /* Lighter version of #64748B for dark mode */
+    --accent: 220 20% 28%;
+    --accent-foreground: 220 14% 96%;
+    --destructive: 0 62% 30%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 20% 30%;
+    --input: 220 20% 30%;
+    --ring: 221 83% 53%; /* #3B82F6 */
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-family: "Inter", sans-serif;
+  }
+}
+
+@layer components {
+  .sidebar-item {
+    @apply flex items-center gap-3 px-3 py-2.5 rounded-lg text-sidebar-foreground hover:bg-sidebar-accent transition-colors cursor-pointer;
+  }
+
+  .sidebar-item-active {
+    @apply bg-sidebar-primary/10 text-primary hover:bg-sidebar-muted/30;
+  }
+
+  .filter-chip {
+    @apply inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium bg-primary/10 text-primary border border-primary/20;
+  }
+
+  .label-badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+
+  .label-blue {
+    @apply bg-[hsl(var(--label-blue-bg))] text-[hsl(var(--label-blue))];
+  }
+
+  .label-green {
+    @apply bg-[hsl(var(--label-green-bg))] text-[hsl(var(--label-green))];
+  }
+
+  .label-red {
+    @apply bg-[hsl(var(--label-red-bg))] text-[hsl(var(--label-red))];
+  }
+
+  .label-orange {
+    @apply bg-[hsl(var(--label-orange-bg))] text-[hsl(var(--label-orange))];
+  }
+
+  .label-purple {
+    @apply bg-[hsl(var(--label-purple-bg))] text-[hsl(var(--label-purple))];
+  }
+
+  .label-yellow {
+    @apply bg-[hsl(var(--label-yellow-bg))] text-[hsl(var(--label-yellow))];
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.3);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.5);
+}
