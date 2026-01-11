@@ -1,22 +1,22 @@
-import { useState } from 'react';
-import { Button } from '@/components/ui/button';
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from '@/components/ui/dialog';
-import { 
-  Command, 
-  CommandEmpty, 
-  CommandGroup, 
-  CommandInput, 
-  CommandItem 
-} from '@/components/ui/command';
-import { Check } from 'lucide-react';
-import { Location } from '@/types';
-import { cn } from '@/lib/utils';
+} from "@/components/ui/dialog";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+} from "@/components/ui/command";
+import { Check } from "lucide-react";
+import { Location } from "@/types";
+import { cn } from "@/lib/utils";
 
 interface AddChildLocationDialogProps {
   open: boolean;
@@ -88,9 +88,7 @@ export function AddChildLocationDialog({
 
   // Filter out: the parent itself, its descendants, its ancestors, and locations that already have this as parent
   const availableLocations = allFlatLocations.filter(
-    (loc) => 
-      !excludedIds.includes(loc.id) && 
-      loc.parentId !== parentLocation.id
+    (loc) => !excludedIds.includes(loc.id) && loc.parentId !== parentLocation.id
   );
 
   const handleSelect = (locationId: string) => {
@@ -115,18 +113,24 @@ export function AddChildLocationDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={(isOpen: boolean) => {
-      if (!isOpen) {
-        setSelectedLocations([]);
-      }
-      onOpenChange(isOpen);
-    }}>
+    <Dialog
+      open={open}
+      onOpenChange={(isOpen: boolean) => {
+        if (!isOpen) {
+          setSelectedLocations([]);
+        }
+        onOpenChange(isOpen);
+      }}
+    >
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Add Child Locations to {parentLocation.name}</DialogTitle>
+          <DialogTitle>
+            Add Child Locations to {parentLocation.name}
+          </DialogTitle>
         </DialogHeader>
         <div className="text-sm text-muted-foreground mb-2">
-          Select locations to add as children. Selected: {selectedLocations.length}
+          Select locations to add as children. Selected:{" "}
+          {selectedLocations.length}
         </div>
         <Command className="border rounded-lg">
           <CommandInput placeholder="Search locations..." />
@@ -164,8 +168,13 @@ export function AddChildLocationDialog({
           <Button variant="outline" onClick={handleCancel}>
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={selectedLocations.length === 0}>
-            Add {selectedLocations.length > 0 ? `${selectedLocations.length} ` : ''}Selected
+          <Button
+            onClick={handleSave}
+            disabled={selectedLocations.length === 0}
+          >
+            Add{" "}
+            {selectedLocations.length > 0 ? `${selectedLocations.length} ` : ""}
+            Selected
           </Button>
         </DialogFooter>
       </DialogContent>

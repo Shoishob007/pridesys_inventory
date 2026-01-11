@@ -1,15 +1,15 @@
-import { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
+} from "@/components/ui/select";
 import {
   Sheet,
   SheetContent,
@@ -17,8 +17,8 @@ import {
   SheetTitle,
   SheetFooter,
   SheetDescription,
-} from '@/components/ui/sheet';
-import { Location } from '@/types';
+} from "@/components/ui/sheet";
+import { Location } from "@/types";
 
 interface LocationFormProps {
   open: boolean;
@@ -58,12 +58,12 @@ export function LocationForm({
       <SheetContent side="right">
         <SheetHeader>
           <SheetTitle>
-            {isEditing ? 'Edit Location' : 'Add New Location'}
+            {isEditing ? "Edit Location" : "Add New Location"}
           </SheetTitle>
           <SheetDescription>
             {isEditing
-              ? 'Update the details of your location.'
-              : 'Add a new location to your inventory.'}
+              ? "Update the details of your location."
+              : "Add a new location to your inventory."}
           </SheetDescription>
         </SheetHeader>
 
@@ -73,7 +73,7 @@ export function LocationForm({
               <Label htmlFor="name">Location Name *</Label>
               <Input
                 id="name"
-                value={formData.name || ''}
+                value={formData.name || ""}
                 onChange={(e) =>
                   setFormData({ ...formData, name: e.target.value })
                 }
@@ -86,7 +86,7 @@ export function LocationForm({
               <Label htmlFor="description">Description</Label>
               <Textarea
                 id="description"
-                value={formData.description || ''}
+                value={formData.description || ""}
                 onChange={(e) =>
                   setFormData({
                     ...formData,
@@ -129,7 +129,7 @@ export function LocationForm({
               Cancel
             </Button>
             <Button type="submit">
-              {isEditing ? 'Save Changes' : 'Add Location'}
+              {isEditing ? "Save Changes" : "Add Location"}
             </Button>
           </SheetFooter>
         </form>
