@@ -26,6 +26,16 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 
 interface Location {
@@ -48,6 +58,9 @@ export default function Inventory() {
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [locationOptions, setLocationOptions] = useState<FilterSubOption[]>([]);
   const [labelOptions, setLabelOptions] = useState<FilterSubOption[]>([]);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState<InventoryItem | null>(null);
+  const [selectedRows, setSelectedRows] = useState<string[]>([]);
 
   const itemsPerPage = 8;
 
@@ -58,47 +71,30 @@ export default function Inventory() {
     setIsLoading(true);
     const headers = { Authorization: token };
 
-    // Build query parameters
     const queryParams = new URLSearchParams();
-
-    // Add search query
-    if (searchQuery) {
-      queryParams.append("q", searchQuery);
-    }
-
-    // Add pagination
+    if (searchQuery) queryParams.append("q", searchQuery);
     queryParams.append("page", currentPage.toString());
     queryParams.append("pageSize", itemsPerPage.toString());
 
-    // Add label filters
-    const labelFilters = filters.filter((f) => f.type === "label");
-    labelFilters.forEach((filter) => {
-      queryParams.append("labels", filter.value);
-    });
-
-    // Add location filters
-    const locationFilters = filters.filter((f) => f.type === "location");
-    locationFilters.forEach((filter) => {
-      queryParams.append("locations", filter.value);
+    filters.forEach((filter) => {
+      if (filter.type === "label") queryParams.append("labels", filter.value);
+      if (filter.type === "location")
+        queryParams.append("locations", filter.value);
     });
 
     const queryString = queryParams.toString();
-    const inventoryUrl = `/api/inventory${
-      queryString ? `?${queryString}` : ""
-    }`;
+    const inventoryUrl = `/api/inventory?${queryString}`;
 
     const inventoryPromise = fetch(inventoryUrl, { headers }).then((res) => {
       if (!res.ok) throw new Error("Failed to fetch inventory");
       return res.json();
     });
-
     const locationsPromise = fetch("/api/locations", { headers }).then(
       (res) => {
         if (!res.ok) throw new Error("Failed to fetch locations");
         return res.json();
       }
     );
-
     const labelsPromise = fetch("/api/labels", { headers }).then((res) => {
       if (!res.ok) throw new Error("Failed to fetch labels");
       return res.json();
@@ -109,59 +105,51 @@ export default function Inventory() {
         const items = Array.isArray(inventoryData.items)
           ? inventoryData.items
           : [];
-
-        // Apply client-side stock status filter (in-stock/out-of-stock)
         const statusFilters = filters.filter((f) => f.type === "status");
         let filteredItems = items;
 
         if (statusFilters.length > 0) {
-          filteredItems = items.filter((item: any) => {
-            return statusFilters.some((filter) => {
+          filteredItems = items.filter((item: any) =>
+            statusFilters.some((filter) => {
               if (filter.value === "in-stock") return item.quantity > 0;
               if (filter.value === "out-of-stock") return item.quantity === 0;
               return true;
-            });
-          });
+            })
+          );
         }
 
-        const transformedItems = filteredItems.map((item: any) => ({
-          ...item,
-          locationId: item.location?.id,
-          labels: Array.isArray(item.labels) ? item.labels : [],
-        }));
-
-        setData(transformedItems);
-        setTotalItems(inventoryData.total || transformedItems.length);
-
-        const locations: Location[] = Array.isArray(locationsData)
-          ? locationsData
-          : [];
-        setLocationOptions(
-          locations.map((loc) => ({
-            id: loc.id,
-            value: loc.id,
-            label: loc.name,
+        setData(
+          filteredItems.map((item: any) => ({
+            ...item,
+            locationId: item.location?.id,
+            labels: Array.isArray(item.labels) ? item.labels : [],
           }))
         );
+        setTotalItems(inventoryData.total || filteredItems.length);
 
-        const labels: Label[] = Array.isArray(labelsData) ? labelsData : [];
+        setLocationOptions(
+          (Array.isArray(locationsData) ? locationsData : []).map(
+            (loc: Location) => ({
+              id: loc.id,
+              value: loc.id,
+              label: loc.name,
+            })
+          )
+        );
         setLabelOptions(
-          labels.map((label) => ({
+          (Array.isArray(labelsData) ? labelsData : []).map((label: Label) => ({
             id: label.id,
             value: label.id,
             label: label.name,
             color: label.color,
           }))
         );
-
         setError(null);
       })
       .catch((err) => {
         setError(err.message);
         setData([]);
         setTotalItems(0);
-        setLocationOptions([]);
-        setLabelOptions([]);
       })
       .finally(() => setIsLoading(false));
   }, [currentPage, searchQuery, filters, itemsPerPage]);
@@ -170,8 +158,6 @@ export default function Inventory() {
     refetch();
   }, [refetch]);
 
-  const totalPages = Math.ceil(totalItems / itemsPerPage);
-
   const handleSortChange = (field: SortField, direction: SortDirection) => {
     setSortField(field);
     setSortDirection(direction);
@@ -179,17 +165,17 @@ export default function Inventory() {
 
   const removeFilter = (id: string) => {
     setFilters(filters.filter((f) => f.id !== id));
-    setCurrentPage(1); // Reset to first page when filter changes
+    setCurrentPage(1);
   };
 
   const handleFiltersChange = (newFilters: FilterValue[]) => {
     setFilters(newFilters);
-    setCurrentPage(1); // Reset to first page when filters change
+    setCurrentPage(1);
   };
 
   const handleSearchChange = (value: string) => {
     setSearchQuery(value);
-    setCurrentPage(1); // Reset to first page when search changes
+    setCurrentPage(1);
   };
 
   const handleAddItem = () => {
@@ -202,28 +188,66 @@ export default function Inventory() {
     setDrawerOpen(true);
   };
 
+  const handleDeleteConfirmation = (item: InventoryItem) => {
+    setItemToDelete(item);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteItem = async () => {
+    if (!itemToDelete) return;
+
+    const token = localStorage.getItem("token");
+    if (token) {
+      try {
+        const response = await fetch(`/api/items/${itemToDelete.id}`, {
+          method: "DELETE",
+          headers: {
+            Authorization: token,
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to delete item");
+        }
+
+        toast.success("Item deleted successfully");
+        refetch();
+      } catch (error) {
+        console.error("Delete error:", error);
+        toast.error("Failed to delete item");
+      } finally {
+        setDeleteDialogOpen(false);
+        setItemToDelete(null);
+      }
+    }
+  };
+
   const handleSaveItem = async (itemData: Partial<InventoryItem>) => {
     const token = localStorage.getItem("token");
     if (token) {
       try {
+        const isUpdating = !!itemData.id;
+        const url = isUpdating ? `/api/items/${itemData.id}` : "/api/items";
+        const method = isUpdating ? "PUT" : "POST";
+
         const requestBody = {
           name: itemData.name,
+          modelNumber: itemData.modelNumber || "",
           description: itemData.description || "",
           quantity: itemData.quantity || 0,
           locationId: itemData.locationId,
           labelIds: itemData.labels?.map((label) => label.id) || [],
-          ...(itemData.id && { id: itemData.id }),
         };
 
-        const response = await fetch("/api/items", {
-          method: "POST",
+        const response = await fetch(url, {
+          method,
           headers: { "Content-Type": "application/json", Authorization: token },
           body: JSON.stringify(requestBody),
         });
 
         if (!response.ok) throw new Error("Failed to save item");
 
-        toast.success(`Item ${itemData.id ? "updated" : "added"} successfully`);
+        toast.success(`Item ${isUpdating ? "updated" : "added"} successfully`);
         refetch();
         setDrawerOpen(false);
       } catch (error) {
@@ -233,10 +257,8 @@ export default function Inventory() {
     }
   };
 
-  const getLocationName = (locationId: string | undefined) => {
-    if (!locationId) return "N/A";
-    return locationOptions.find((l) => l.value === locationId)?.label || "N/A";
-  };
+  const getLocationName = (locationId: string | undefined) =>
+    locationOptions.find((l) => l.value === locationId)?.label || "N/A";
 
   const columns = [
     {
@@ -246,12 +268,10 @@ export default function Inventory() {
       render: (item: InventoryItem) => (
         <div className="flex items-center gap-3">
           <ItemImage alt={item.name} />
-          <div className="min-w-0">
-            <p className="font-medium text-foreground truncate text-sm sm:text-base">
-              {item.name}
-            </p>
-            <p className="text-xs text-muted-foreground truncate sm:hidden mt-1">
-              {getLocationName(item.locationId)}
+          <div>
+            <p className="font-medium text-foreground truncate">{item.name}</p>
+            <p className="text-xs text-muted-foreground truncate">
+              Model: {item.modelNumber || "No Data"}
             </p>
           </div>
         </div>
@@ -271,37 +291,25 @@ export default function Inventory() {
       key: "labels",
       header: "Labels",
       className: "hidden md:table-cell",
-      render: (item: InventoryItem) => {
-        if (
-          !item.labels ||
-          !Array.isArray(item.labels) ||
-          item.labels.length === 0
-        ) {
-          return (
-            <span className="text-xs text-muted-foreground">No labels</span>
-          );
-        }
-
-        return (
+      render: (item: InventoryItem) =>
+        item.labels && item.labels.length > 0 ? (
           <div className="flex flex-wrap gap-1.5">
             {item.labels.map((itemLabel: Label) => {
               const fullLabel = labelOptions.find(
                 (opt) => opt.id === itemLabel.id
               );
-              const badgeName = fullLabel?.label || itemLabel.name;
-              const badgeColor = fullLabel?.color || "blue";
-
               return (
                 <LabelBadge
                   key={itemLabel.id}
-                  name={badgeName}
-                  color={badgeColor}
+                  name={fullLabel?.label || itemLabel.name}
+                  color={fullLabel?.color || "blue"}
                 />
               );
             })}
           </div>
-        );
-      },
+        ) : (
+          <span className="text-xs text-muted-foreground">No labels</span>
+        ),
     },
     {
       key: "quantity",
@@ -343,7 +351,10 @@ export default function Inventory() {
             <DropdownMenuItem onClick={() => handleEditItem(item)}>
               Edit
             </DropdownMenuItem>
-            <DropdownMenuItem className="text-destructive">
+            <DropdownMenuItem
+              className="text-destructive"
+              onClick={() => handleDeleteConfirmation(item)}
+            >
               Delete
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -351,6 +362,8 @@ export default function Inventory() {
       ),
     },
   ];
+
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -370,19 +383,22 @@ export default function Inventory() {
             </Button>
           </div>
         </div>
-
-        <div className="w-full">
-          <SearchInput
-            value={searchQuery}
-            onChange={handleSearchChange}
-            placeholder="Search items..."
-            className="w-full"
-          />
-        </div>
+        <SearchInput
+          value={searchQuery}
+          onChange={handleSearchChange}
+          placeholder="Search items..."
+          className="w-full"
+        />
       </div>
 
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div className="flex items-center gap-2 flex-wrap">
+          <FilterDropdown
+            locationOptions={locationOptions}
+            labelOptions={labelOptions}
+            activeFilters={filters}
+            onFiltersChange={handleFiltersChange}
+          />
           {filters.map((filter) => (
             <FilterChip
               key={filter.id}
@@ -390,12 +406,6 @@ export default function Inventory() {
               onRemove={() => removeFilter(filter.id)}
             />
           ))}
-          <FilterDropdown
-            locationOptions={locationOptions}
-            labelOptions={labelOptions}
-            activeFilters={filters}
-            onFiltersChange={handleFiltersChange}
-          />
         </div>
         <div className="flex items-center gap-3 justify-between sm:justify-end">
           <span className="text-sm text-muted-foreground whitespace-nowrap">
@@ -431,6 +441,9 @@ export default function Inventory() {
           columns={columns}
           data={data}
           keyExtractor={(item) => item.id}
+          selectable
+          selectedItems={selectedRows}
+          onSelectionChange={setSelectedRows}
         />
       )}
 
@@ -452,6 +465,24 @@ export default function Inventory() {
         locationOptions={locationOptions}
         labelOptions={labelOptions}
       />
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the
+              item.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteItem}>
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

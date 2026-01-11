@@ -1,25 +1,25 @@
-import { useState, useEffect } from 'react';
-import { Upload } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+import { useState, useEffect } from "react";
+import { Upload } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
+} from "@/components/ui/select";
 import {
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle,
-} from '@/components/ui/sheet';
-import { LabelBadge } from '@/components/common/LabelBadge';
-import { InventoryItem, Label as ItemLabel, FilterSubOption } from '@/types';
-import { cn } from '@/lib/utils';
+} from "@/components/ui/sheet";
+import { LabelBadge } from "@/components/common/LabelBadge";
+import { InventoryItem, Label as ItemLabel, FilterSubOption } from "@/types";
+import { cn } from "@/lib/utils";
 
 interface ItemFormDrawerProps {
   open: boolean;
@@ -40,33 +40,36 @@ export function ItemFormDrawer({
 }: ItemFormDrawerProps) {
   const isEditing = !!item;
 
-  const [formData, setFormData] = useState<Partial<InventoryItem>>({
-    name: '',
-    description: '',
-    quantity: 1,
-    locationId: '',
-    labels: [],
-  });
+  const getInitialFormData = (
+    item: InventoryItem | null | undefined
+  ): Partial<InventoryItem> => {
+    if (item) {
+      return {
+        id: item.id,
+        name: item.name || "",
+        modelNumber: item.modelNumber || "",
+        description: item.description || "",
+        quantity: item.quantity || 1,
+        locationId: item.locationId || "",
+        labels: item.labels || [],
+      };
+    }
+    return {
+      name: "",
+      modelNumber: "",
+      description: "",
+      quantity: 1,
+      locationId: "",
+      labels: [],
+    };
+  };
+
+  const [formData, setFormData] = useState<Partial<InventoryItem>>(
+    getInitialFormData(item)
+  );
 
   useEffect(() => {
-    if (item) {
-      setFormData({
-        name: item.name || '',
-        description: item.description || '',
-        quantity: item.quantity || 1,
-        locationId: item.locationId || '',
-        labels: item.labels || [],
-      });
-    } else {
-      // Reset for new item
-      setFormData({
-        name: '',
-        description: '',
-        quantity: 1,
-        locationId: '',
-        labels: [],
-      });
-    }
+    setFormData(getInitialFormData(item));
   }, [item, open]);
 
   const toggleLabel = (label: ItemLabel) => {
@@ -95,7 +98,7 @@ export function ItemFormDrawer({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
         <SheetHeader>
-          <SheetTitle>{isEditing ? 'Edit Item' : 'Add New Item'}</SheetTitle>
+          <SheetTitle>{isEditing ? "Edit Item" : "Add New Item"}</SheetTitle>
         </SheetHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6 mt-6">
@@ -120,6 +123,18 @@ export function ItemFormDrawer({
                 }
                 placeholder="e.g., MacBook Pro 16"
                 required
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="modelNumber">Model Number</Label>
+              <Input
+                id="modelNumber"
+                value={formData.modelNumber}
+                onChange={(e) =>
+                  setFormData({ ...formData, modelNumber: e.target.value })
+                }
+                placeholder="e.g., A2485"
               />
             </div>
 
@@ -165,17 +180,23 @@ export function ItemFormDrawer({
             <Label>Labels</Label>
             <div className="flex flex-wrap gap-2">
               {labelOptions.map((label) => {
-                const isSelected = (formData.labels || []).some((l) => l.id === label.value);
-                const labelData = { id: label.value, name: label.label, color: label.color };
+                const isSelected = (formData.labels || []).some(
+                  (l) => l.id === label.value
+                );
+                const labelData = {
+                  id: label.value,
+                  name: label.label,
+                  color: label.color,
+                };
                 return (
                   <button
                     key={label.id}
                     type="button"
                     onClick={() => toggleLabel(labelData)}
                     className={cn(
-                      'transition-all',
+                      "transition-all",
                       isSelected &&
-                        'ring-2 ring-primary ring-offset-2 rounded-full'
+                        "ring-2 ring-primary ring-offset-2 rounded-full"
                     )}
                   >
                     <LabelBadge name={label.label} color={labelData.color} />
@@ -208,7 +229,7 @@ export function ItemFormDrawer({
               Cancel
             </Button>
             <Button type="submit" className="flex-1">
-              {isEditing ? 'Save Changes' : 'Add Item'}
+              {isEditing ? "Save Changes" : "Add Item"}
             </Button>
           </div>
         </form>
