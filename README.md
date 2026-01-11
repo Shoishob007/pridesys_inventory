@@ -1,36 +1,41 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Home Inventory
 
-## Getting Started
+This is a Next.js application for tracking and organizing your belongings.
 
-First, run the development server:
+## How to Run
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+1.  Install the dependencies:
+    ```bash
+    npm install
+    ```
+2.  Create a `.env.local` file in the root of the project and add the following environment variable:
+    ```
+    NEXT_PUBLIC_API_URL=http://4.213.57.100:3100
+    ```
+3.  Start the development server:
+    ```bash
+    npm run dev
+    ```
+    The application will be available at `http://localhost:5000`.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Environment Variables
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+*   `NEXT_PUBLIC_API_URL`: The base URL of the API.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Authentication
 
-## Learn More
+Authentication is handled using a token-based system. When a user logs in, the application sends a POST request to the `/api/login` endpoint with the user's credentials. If the credentials are valid, the API returns a JSON Web Token (JWT). This token is then stored in the browser's `localStorage` and is sent with each subsequent request to the API to authenticate the user.
 
-To learn more about Next.js, take a look at the following resources:
+## Tradeoffs and Next Steps
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Tradeoffs
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+*   **Security:** The JWT is stored in `localStorage`, which can be vulnerable to Cross-Site Scripting (XSS) attacks. A more secure approach would be to use HTTP-only cookies to store the token.
+*   **Validation:** The login form has basic client-side validation, but there is no explicit server-side validation shown, which is a potential security risk.
 
-## Deploy on Vercel
+### Next Steps
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+*   **Improve Security:** Implement HTTP-only cookies for storing the JWT to enhance security.
+*   **Add Registration Page:** Create a user interface for registration so that new users can create an account.
+*   **Server-Side Validation:** Add robust server-side validation for all API endpoints to improve security and data integrity.
+*   **Implement refresh tokens:** For a better user experience and improved security, implement refresh tokens to allow users to stay logged in for longer periods without having to re-enter their credentials.
