@@ -50,7 +50,7 @@ export function ItemFormDrawer({
         modelNumber: item.modelNumber || "",
         description: item.description || "",
         quantity: item.quantity || 1,
-        locationId: item.locationId || "",
+        locationId: item.locationId || item.location?.id || "",
         labels: item.labels || [],
       };
     }

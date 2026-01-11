@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Edit, Paperclip, Trash2, MapPin, Calendar, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,18 @@ import { LabelBadge } from "@/components/common/LabelBadge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TableSkeleton } from "@/components/common/TableSkeleton";
 import { ErrorState } from "@/components/common/ErrorState";
-import { InventoryItem } from "@/types";
+import { ItemFormDrawer } from "@/components/inventory/ItemFormDrawer";
+import { InventoryItem, FilterSubOption, Label, Location } from "@/types";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 
 export default function ItemDetails() {
@@ -18,40 +29,145 @@ export default function ItemDetails() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [locationOptions, setLocationOptions] = useState<FilterSubOption[]>([]);
+  const [labelOptions, setLabelOptions] = useState<FilterSubOption[]>([]);
+
+  const fetchItem = useCallback(async () => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      router.push("/login");
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const headers = { Authorization: token };
+      const itemPromise = fetch(`/api/items/${id}`, { headers }).then((res) => {
+        if (!res.ok) throw new Error("Failed to fetch item details");
+        return res.json();
+      });
+      const locationsPromise = fetch("/api/locations", { headers }).then(
+        (res) => {
+          if (!res.ok) throw new Error("Failed to fetch locations");
+          return res.json();
+        }
+      );
+      const labelsPromise = fetch("/api/labels", { headers }).then((res) => {
+        if (!res.ok) throw new Error("Failed to fetch labels");
+        return res.json();
+      });
+
+      const [itemData, locationsData, labelsData] = await Promise.all([
+        itemPromise,
+        locationsPromise,
+        labelsPromise,
+      ]);
+
+      setItem(itemData);
+      setLocationOptions(
+        (Array.isArray(locationsData) ? locationsData : []).map(
+          (loc: Location) => ({
+            id: loc.id,
+            value: loc.id,
+            label: loc.name,
+          })
+        )
+      );
+      setLabelOptions(
+        (Array.isArray(labelsData) ? labelsData : []).map((label: Label) => ({
+          id: label.id,
+          value: label.id,
+          label: label.name,
+          color: label.color,
+        }))
+      );
+      setError(null);
+    } catch (err) {
+      console.error("Fetch error:", err);
+      setError(err instanceof Error ? err.message : "Failed to load item");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [id, router]);
 
   useEffect(() => {
-    const fetchItem = async () => {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        router.push('/login');
-        return;
-      }
-
-      setIsLoading(true);
-      try {
-        const response = await fetch(`/api/items/${id}`, {
-          headers: { Authorization: token },
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to fetch item details');
-        }
-
-        const data = await response.json();
-        setItem(data);
-        setError(null);
-      } catch (err) {
-        console.error('Fetch error:', err);
-        setError(err instanceof Error ? err.message : 'Failed to load item');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     if (id) {
       fetchItem();
     }
-  }, [id, router]);
+  }, [id, fetchItem]);
+
+  const handleEditItem = () => {
+    setDrawerOpen(true);
+  };
+
+  const handleDeleteConfirmation = () => {
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteItem = async () => {
+    if (!item) return;
+
+    const token = localStorage.getItem("token");
+    if (token) {
+      try {
+        const response = await fetch(`/api/items/${item.id}`, {
+          method: "DELETE",
+          headers: {
+            Authorization: token,
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to delete item");
+        }
+
+        toast.success("Item deleted successfully");
+        router.push("/inventory");
+      } catch (error) {
+        console.error("Delete error:", error);
+        toast.error("Failed to delete item");
+      } finally {
+        setDeleteDialogOpen(false);
+      }
+    }
+  };
+
+  const handleSaveItem = async (itemData: Partial<InventoryItem>) => {
+    const token = localStorage.getItem("token");
+    if (token) {
+      try {
+        const isUpdating = !!itemData.id;
+        const url = isUpdating ? `/api/items/${itemData.id}` : "/api/items";
+        const method = isUpdating ? "PUT" : "POST";
+
+        const requestBody = {
+          name: itemData.name,
+          modelNumber: itemData.modelNumber || "",
+          description: itemData.description || "",
+          quantity: itemData.quantity || 0,
+          locationId: itemData.locationId,
+          labelIds: itemData.labels?.map((label) => label.id) || [],
+        };
+
+        const response = await fetch(url, {
+          method,
+          headers: { "Content-Type": "application/json", Authorization: token },
+          body: JSON.stringify(requestBody),
+        });
+
+        if (!response.ok) throw new Error("Failed to save item");
+
+        toast.success(`Item ${isUpdating ? "updated" : "added"} successfully`);
+        fetchItem();
+        setDrawerOpen(false);
+      } catch (error) {
+        console.error("Save error:", error);
+        toast.error("Failed to save item");
+      }
+    }
+  };
 
   if (isLoading) {
     return (
@@ -64,8 +180,8 @@ export default function ItemDetails() {
 
   if (error || !item) {
     return (
-      <ErrorState 
-        message={error || "Item not found"} 
+      <ErrorState
+        message={error || "Item not found"}
         onRetry={() => window.location.reload()}
       />
     );
@@ -76,25 +192,34 @@ export default function ItemDetails() {
     { label: item.name },
   ];
 
-  // Mock image placeholders
   const images = [null, null, null, null];
 
   const formatDate = (dateString?: string) => {
-    if (!dateString || dateString === "" || dateString === "0001-01-01T00:00:00Z") return null;
+    if (
+      !dateString ||
+      dateString === "" ||
+      dateString === "0001-01-01T00:00:00Z"
+    )
+      return null;
     return new Date(dateString).toLocaleDateString();
   };
 
-  const hasActiveWarranty = item.lifetimeWarranty || 
-    (item.warrantyExpires && item.warrantyExpires !== "" && 
-     new Date(item.warrantyExpires) > new Date());
+  const hasActiveWarranty =
+    item.lifetimeWarranty ||
+    (item.warrantyExpires &&
+      item.warrantyExpires !== "" &&
+      new Date(item.warrantyExpires) > new Date());
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <Breadcrumb items={breadcrumbItems} />
         <div className="flex items-center gap-2 sm:gap-3 flex-wrap sm:flex-nowrap">
-          <Button variant="outline" className="flex-1 sm:flex-initial">
+          <Button
+            variant="outline"
+            className="flex-1 sm:flex-initial"
+            onClick={handleEditItem}
+          >
             <Edit className="h-4 w-4" />
             <span className="hidden sm:inline ml-2">Edit</span>
           </Button>
@@ -108,7 +233,7 @@ export default function ItemDetails() {
           <Button
             variant="outline"
             className="flex-1 sm:flex-initial text-destructive hover:text-destructive"
-            onClick={() => toast.error("Delete functionality coming soon")}
+            onClick={handleDeleteConfirmation}
           >
             <Trash2 className="h-4 w-4" />
             <span className="hidden sm:inline ml-2">Delete</span>
@@ -116,12 +241,15 @@ export default function ItemDetails() {
         </div>
       </div>
 
-      {/* Title and badges */}
       <div>
         <h1 className="text-2xl font-bold text-foreground">{item.name}</h1>
         <div className="flex items-center gap-2 mt-2">
           {item.labels?.map((label) => (
-            <LabelBadge key={label.id} name={label.name} color={label.color || 'blue'} />
+            <LabelBadge
+              key={label.id}
+              name={label.name}
+              color={label.color || "blue"}
+            />
           ))}
           {hasActiveWarranty && (
             <LabelBadge name="Active Warranty" color="green" />
@@ -129,16 +257,12 @@ export default function ItemDetails() {
         </div>
       </div>
 
-      {/* Main content */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Image gallery */}
         <div className="lg:col-span-2 space-y-4">
-          {/* Main image */}
           <div className="aspect-4/3 bg-muted rounded-xl flex items-center justify-center border min-h-[400px] lg:min-h-[500px]">
             <div className="text-muted-foreground">No image</div>
           </div>
 
-          {/* Thumbnails */}
           <div className="flex gap-3">
             {images.map((_, index) => (
               <button
@@ -160,7 +284,6 @@ export default function ItemDetails() {
           </div>
         </div>
 
-        {/* Key details */}
         <div className="bg-card rounded-xl border p-6 space-y-5 h-fit">
           <h2 className="font-semibold text-foreground">Key Details</h2>
 
@@ -182,7 +305,7 @@ export default function ItemDetails() {
                   <LabelBadge
                     key={label.id}
                     name={label.name}
-                    color={label.color || 'blue'}
+                    color={label.color || "blue"}
                   />
                 ))
               ) : (
@@ -209,8 +332,8 @@ export default function ItemDetails() {
           <div>
             <p className="text-sm text-muted-foreground mb-1">Purchase Price</p>
             <span className="text-xl font-bold text-foreground">
-              {item.purchasePrice && item.purchasePrice > 0 
-                ? `$${item.purchasePrice.toFixed(2)}` 
+              {item.purchasePrice && item.purchasePrice > 0
+                ? `$${item.purchasePrice.toFixed(2)}`
                 : "N/A"}
             </span>
           </div>
@@ -233,14 +356,11 @@ export default function ItemDetails() {
 
           <div>
             <p className="text-sm text-muted-foreground mb-1">Notes</p>
-            <p className="text-sm text-foreground">
-              {item.notes || "N/A"}
-            </p>
+            <p className="text-sm text-foreground">{item.notes || "N/A"}</p>
           </div>
         </div>
       </div>
 
-      {/* Tabs section */}
       <Tabs defaultValue="details" className="mt-8">
         <TabsList className="border-b w-full justify-start rounded-none h-auto p-0 bg-transparent">
           <TabsTrigger
@@ -265,7 +385,6 @@ export default function ItemDetails() {
 
         <TabsContent value="details" className="pt-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {/* Product Information */}
             <div>
               <h3 className="font-semibold text-foreground mb-4">
                 Product Information
@@ -294,7 +413,6 @@ export default function ItemDetails() {
               </div>
             </div>
 
-            {/* Additional Details */}
             <div>
               <h3 className="font-semibold text-foreground mb-4">
                 Additional Details
@@ -331,6 +449,33 @@ export default function ItemDetails() {
           <p className="text-muted-foreground">No activity recorded</p>
         </TabsContent>
       </Tabs>
+
+      <ItemFormDrawer
+        open={drawerOpen}
+        onOpenChange={setDrawerOpen}
+        onSave={handleSaveItem}
+        item={item}
+        locationOptions={locationOptions}
+        labelOptions={labelOptions}
+      />
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the
+              item.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteItem}>
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
