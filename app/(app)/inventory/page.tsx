@@ -264,11 +264,11 @@ export default function Inventory() {
     {
       key: "item",
       header: "Item",
-      width: "40%",
+      minWidth: "250px",
       render: (item: InventoryItem) => (
         <div className="flex items-center gap-3">
           <ItemImage alt={item.name} />
-          <div>
+          <div className="min-w-0">
             <p className="font-medium text-foreground truncate">{item.name}</p>
             <p className="text-xs text-muted-foreground truncate">
               Model: {item.modelNumber || "No Data"}
@@ -280,9 +280,9 @@ export default function Inventory() {
     {
       key: "location",
       header: "Location",
-      className: "hidden sm:table-cell",
+      minWidth: "150px",
       render: (item: InventoryItem) => (
-        <span className="text-sm text-muted-foreground">
+        <span className="text-sm text-muted-foreground whitespace-nowrap">
           {getLocationName(item.locationId)}
         </span>
       ),
@@ -290,7 +290,7 @@ export default function Inventory() {
     {
       key: "labels",
       header: "Labels",
-      className: "hidden md:table-cell",
+      minWidth: "200px",
       render: (item: InventoryItem) =>
         item.labels && item.labels.length > 0 ? (
           <div className="flex flex-wrap gap-1.5">
@@ -314,8 +314,8 @@ export default function Inventory() {
     {
       key: "quantity",
       header: "Quantity",
-      width: "80px",
-      className: "text-right hidden sm:table-cell",
+      minWidth: "100px",
+      className: "text-right",
       render: (item: InventoryItem) => (
         <span className="text-sm text-foreground">{item.quantity}</span>
       ),
@@ -323,10 +323,9 @@ export default function Inventory() {
     {
       key: "updated",
       header: "Updated",
-      width: "150px",
-      className: "hidden lg:table-cell",
+      minWidth: "120px",
       render: (item: InventoryItem) => (
-        <span className="text-sm text-muted-foreground">
+        <span className="text-sm text-muted-foreground whitespace-nowrap">
           {new Date(item.updatedAt).toLocaleDateString()}
         </span>
       ),
