@@ -301,9 +301,7 @@ export default function Inventory() {
               return (
                 <LabelBadge
                   key={itemLabel.id}
-                  name={fullLabel?.label || itemLabel.name}
-                  color={fullLabel?.color || "blue"}
-                />
+                  name={fullLabel?.label || itemLabel.name}                />
               );
             })}
           </div>

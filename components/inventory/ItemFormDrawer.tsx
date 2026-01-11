@@ -199,7 +199,7 @@ export function ItemFormDrawer({
                         "ring-2 ring-primary ring-offset-2 rounded-full"
                     )}
                   >
-                    <LabelBadge name={label.label} color={labelData.color} />
+                    <LabelBadge name={label.label} />
                   </button>
                 );
               })}

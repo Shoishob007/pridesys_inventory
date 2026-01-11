@@ -21,6 +21,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
+import { ItemDetailsSkeleton } from "@/components/common/ItemDetailsSkeleton";
 
 export default function ItemDetails() {
   const { id } = useParams();
@@ -170,12 +171,7 @@ export default function ItemDetails() {
   };
 
   if (isLoading) {
-    return (
-      <div className="space-y-6">
-        <div className="h-8 w-64 bg-muted animate-pulse rounded" />
-        <TableSkeleton rows={6} columns={2} />
-      </div>
-    );
+    return <ItemDetailsSkeleton />;
   }
 
   if (error || !item) {
@@ -247,9 +243,7 @@ export default function ItemDetails() {
           {item.labels?.map((label) => (
             <LabelBadge
               key={label.id}
-              name={label.name}
-              color={label.color || "blue"}
-            />
+              name={label.name}            />
           ))}
           {hasActiveWarranty && (
             <LabelBadge name="Active Warranty" color="green" />
@@ -304,9 +298,7 @@ export default function ItemDetails() {
                 item.labels.map((label) => (
                   <LabelBadge
                     key={label.id}
-                    name={label.name}
-                    color={label.color || "blue"}
-                  />
+                    name={label.name}                  />
                 ))
               ) : (
                 <span className="text-sm text-muted-foreground">N/A</span>

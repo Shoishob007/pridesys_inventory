@@ -124,7 +124,7 @@ export function FilterDropdown({
                       'ring-2 ring-primary ring-offset-1 rounded-full'
                   )}
                 >
-                  <LabelBadge name={label.label} color={label.color} />
+                  <LabelBadge name={label.label} />
                 </button>
               ))}
             </div>
